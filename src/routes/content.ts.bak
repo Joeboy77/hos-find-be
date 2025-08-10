@@ -1,0 +1,33 @@
+import { Router } from 'express';
+import { contentController } from '../controllers/contentController';
+import { uploadSingle, uploadMultiple } from '../middleware/upload';
+import { authenticateAdmin } from '../middleware/adminAuth';
+
+const router = Router();
+
+// Public routes (no authentication required)
+router.get('/categories', contentController.getCategories);
+router.get('/properties', contentController.getProperties);
+router.get('/properties/featured', contentController.getFeaturedProperties);
+router.get('/properties/region/:region', contentController.getPropertiesByRegion);
+
+// New user-facing routes
+router.get('/properties/search', contentController.searchProperties);
+router.get('/properties/category/:categoryId', contentController.getPropertiesByCategory);
+router.get('/properties/type/:type', contentController.getPropertiesByType);
+router.get('/properties/:id', contentController.getPropertyById);
+
+// Admin routes (authentication required)
+router.use('/content-admin', authenticateAdmin);
+
+// Category management
+router.post('/content-admin/categories', uploadSingle, contentController.createCategory);
+router.put('/content-admin/categories/:id', uploadSingle, contentController.updateCategory);
+router.delete('/content-admin/categories/:id', contentController.deleteCategory);
+
+// Property management
+router.post('/content-admin/properties', uploadMultiple, contentController.createProperty);
+router.put('/content-admin/properties/:id', uploadMultiple, contentController.updateProperty);
+router.delete('/content-admin/properties/:id', contentController.deleteProperty);
+
+export default router; 

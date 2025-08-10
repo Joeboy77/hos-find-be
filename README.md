@@ -1,247 +1,131 @@
 # HosFind Backend API
 
-A robust, scalable backend API for the HosFind hostel finding application built with Node.js, Express, TypeScript, and PostgreSQL.
+A comprehensive backend API for the HosFind hostel finding application, built with Express.js, TypeScript, and PostgreSQL.
 
-## 🚀 Features
+## Features
 
-- **Authentication & Authorization**: JWT-based authentication with refresh tokens
-- **User Management**: Complete CRUD operations for user profiles
-- **Input Validation**: Comprehensive validation using express-validator and class-validator
-- **Error Handling**: Centralized error handling with proper HTTP status codes
-- **Database**: PostgreSQL with TypeORM for efficient data management
-- **Security**: Helmet, CORS, and bcrypt for enhanced security
-- **TypeScript**: Full TypeScript support with strict type checking
-- **Logging**: Morgan for HTTP request logging
+- **User Authentication & Authorization**: JWT-based authentication with refresh tokens
+- **Admin Management**: Comprehensive admin panel with role-based access control
+- **Property Management**: Full CRUD operations for properties with category organization
+- **Category Management**: Create, update, and manage property categories
+- **File Upload**: Cloudinary integration for image management
+- **Search & Filtering**: Advanced property search with multiple filters
+- **Pagination**: Efficient data pagination for large datasets
+- **Validation**: Request validation using express-validator
+- **Error Handling**: Centralized error handling with custom error classes
 
-## 🛠️ Tech Stack
+## Admin API Endpoints
 
-- **Runtime**: Node.js
-- **Framework**: Express.js
-- **Language**: TypeScript
-- **Database**: PostgreSQL
-- **ORM**: TypeORM
-- **Authentication**: JWT (JSON Web Tokens)
-- **Validation**: express-validator, class-validator
-- **Security**: bcryptjs, helmet, cors
-- **Development**: nodemon, ts-node
+### Authentication
+- `POST /admin/login` - Admin login with email/password
 
-## 📋 Prerequisites
+### Dashboard & Statistics
+- `GET /admin/dashboard` - Get system overview statistics
+- `GET /admin/categories-stats` - Get detailed category statistics with property counts
 
-- Node.js (v16 or higher)
-- Yarn package manager
-- PostgreSQL database
-- Git
+### User Management
+- `GET /admin/users` - Get all users with pagination and search
+- `GET /admin/users/:userId` - Get specific user details
+- `PATCH /admin/users/:userId/status` - Activate/deactivate users
 
-## 🚀 Quick Start
+### Admin Management
+- `POST /admin/admins` - Create new admin accounts (admin role required)
 
-### 1. Clone and Install Dependencies
+### Property Management
+- `GET /admin/properties` - Get all properties with filtering and pagination
+- `GET /admin/properties/:id` - Get specific property details
+- `POST /admin/properties` - Create new properties
+- `PUT /admin/properties/:id` - Update property details
+- `DELETE /admin/properties/:id` - Soft delete properties
+- `PATCH /admin/properties/:id/status` - Update property status
+- `PATCH /admin/properties/:id/rating` - Update property rating
+- `PATCH /admin/properties/bulk-status` - Bulk update property statuses
 
-```bash
-cd hos-find-be
-yarn install
-```
+### Category Management
+- `GET /admin/categories` - Get all categories
+- `GET /admin/categories/:id` - Get specific category details
+- `POST /admin/categories` - Create new categories
+- `PUT /admin/categories/:id` - Update category details
+- `DELETE /admin/categories/:id` - Soft delete categories
+- `PATCH /admin/categories/:id/status` - Update category status
 
-### 2. Environment Setup
+## Property Types
+- hostel
+- hotel
+- homestay
+- apartment
+- guesthouse
 
-Create a `.env` file in the root directory with the following variables:
+## Property Statuses
+- active
+- inactive
+- maintenance
+- booked
+
+## Data Validation
+
+All admin endpoints include comprehensive validation:
+- Required field validation
+- Data type validation
+- Business logic validation (e.g., preventing deletion of categories with active properties)
+- Input sanitization and normalization
+
+## Security Features
+
+- JWT-based authentication with extended expiration for admin access
+- Role-based access control (Admin vs Super Admin)
+- Input validation and sanitization
+- Soft delete operations to prevent data loss
+- Comprehensive error handling
+
+## Getting Started
+
+1. Install dependencies: `yarn install`
+2. Set up environment variables (see `.env.example`)
+3. Set up database: `yarn db:setup`
+4. Create admin account: `yarn admin:create`
+5. Start development server: `yarn dev`
+
+## Environment Variables
 
 ```env
-# Server Configuration
-NODE_ENV=development
-PORT=5000
-FRONTEND_URL=http://localhost:3000
-
-# Database Configuration
+# Database
 DB_HOST=localhost
 DB_PORT=5432
-DB_USERNAME=postgres
+DB_USERNAME=your_username
 DB_PASSWORD=your_password
-DB_NAME=hosfind
+DB_NAME=hos_find
 
-# JWT Configuration
-JWT_SECRET=your_super_secret_jwt_key_here
-JWT_REFRESH_SECRET=your_super_secret_refresh_key_here
+# JWT
+JWT_SECRET=your_jwt_secret
+JWT_REFRESH_SECRET=your_refresh_secret
 
-# Optional: SSL Configuration (for production)
-# SSL_ENABLED=false
+# Cloudinary
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
 ```
 
-### 3. Database Setup
+## API Response Format
 
-1. Create a PostgreSQL database:
-```sql
-CREATE DATABASE hosfind;
+All API responses follow a consistent format:
+
+```json
+{
+  "success": true,
+  "message": "Operation completed successfully",
+  "data": {
+    // Response data
+  }
+}
 ```
 
-2. Run the application (it will auto-sync tables in development mode):
-```bash
-yarn dev
-```
+Error responses:
 
-### 4. Start Development Server
-
-```bash
-yarn dev
-```
-
-The server will start on `http://localhost:5000`
-
-## 📚 API Endpoints
-
-### Authentication Routes (`/api/auth`)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/signup` | User registration |
-| POST | `/login` | User login |
-| POST | `/refresh-token` | Refresh access token |
-| POST | `/logout` | User logout |
-
-### User Routes (`/api/users`) - Protected
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/profile` | Get user profile |
-| PUT | `/profile` | Update user profile |
-| DELETE | `/profile` | Delete user profile |
-
-### Health Check
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/health` | Server health status |
-
-## 🔐 Authentication
-
-The API uses JWT tokens for authentication:
-
-- **Access Token**: Valid for 15 minutes
-- **Refresh Token**: Valid for 7 days
-- **Bearer Token**: Include in Authorization header: `Bearer <token>`
-
-### Protected Routes
-
-For protected routes, include the access token in the request header:
-```
-Authorization: Bearer <your_access_token>
-```
-
-## 🗄️ Database Schema
-
-### Users Table
-
-| Column | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| fullName | VARCHAR(100) | User's full name |
-| email | VARCHAR(100) | Unique email address |
-| password | VARCHAR(255) | Hashed password |
-| phoneNumber | VARCHAR(20) | Unique phone number |
-| location | VARCHAR(100) | User's location |
-| gender | ENUM | male/female |
-| isEmailVerified | BOOLEAN | Email verification status |
-| isPhoneVerified | BOOLEAN | Phone verification status |
-| lastLoginAt | TIMESTAMP | Last login timestamp |
-| refreshToken | VARCHAR(255) | JWT refresh token |
-| refreshTokenExpiresAt | TIMESTAMP | Refresh token expiry |
-| createdAt | TIMESTAMP | Account creation date |
-| updatedAt | TIMESTAMP | Last update date |
-
-## 🧪 Testing
-
-```bash
-# Run tests (when implemented)
-yarn test
-
-# Run tests with coverage
-yarn test:coverage
-```
-
-## 🚀 Production Deployment
-
-1. Build the project:
-```bash
-yarn build
-```
-
-2. Start production server:
-```bash
-yarn start
-```
-
-3. Set environment variables for production:
-```env
-NODE_ENV=production
-SSL_ENABLED=true
-```
-
-## 📁 Project Structure
-
-```
-src/
-├── config/          # Configuration files
-│   └── database.ts  # Database configuration
-├── controllers/     # Route controllers
-│   ├── authController.ts
-│   └── userController.ts
-├── middleware/      # Custom middleware
-│   ├── authenticateToken.ts
-│   ├── errorHandler.ts
-│   ├── notFoundHandler.ts
-│   └── validateRequest.ts
-├── models/          # Database models/entities
-│   └── User.ts
-├── routes/          # API routes
-│   ├── auth.ts
-│   └── user.ts
-├── services/        # Business logic services
-├── types/           # TypeScript type definitions
-├── utils/           # Utility functions
-└── index.ts         # Application entry point
-```
-
-## 🔧 Available Scripts
-
-```bash
-yarn dev          # Start development server
-yarn build        # Build for production
-yarn start        # Start production server
-yarn typeorm      # TypeORM CLI commands
-yarn migration:generate  # Generate database migration
-yarn migration:run      # Run database migrations
-yarn migration:revert   # Revert last migration
-yarn db:seed     # Seed database (when implemented)
-```
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-1. **Database Connection Failed**
-   - Check PostgreSQL service is running
-   - Verify database credentials in `.env`
-   - Ensure database exists
-
-2. **JWT Errors**
-   - Verify JWT_SECRET and JWT_REFRESH_SECRET are set
-   - Check token expiration
-
-3. **Port Already in Use**
-   - Change PORT in `.env` file
-   - Kill process using the port: `lsof -ti:5000 | xargs kill -9`
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
-## 🆘 Support
-
-For support and questions, please open an issue in the repository. 
+```json
+{
+  "success": false,
+  "message": "Error description",
+  "statusCode": 400
+}
+``` 
