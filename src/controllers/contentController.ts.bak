@@ -1,0 +1,642 @@
+import { Request, Response, NextFunction } from 'express';
+import { AppDataSource } from '../config/database';
+import { Category } from '../models/Category';
+import { Property } from '../models/Property';
+import { AppError } from '../middleware/errorHandler';
+import cloudinary from '../config/cloudinary';
+import fs from 'fs';
+
+export const contentController = {
+  // Category Management
+  async createCategory(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.file) {
+        const error = new Error('Category image is required') as AppError;
+        error.statusCode = 400;
+        return next(error);
+      }
+
+      const categoryRepository = AppDataSource.getRepository(Category);
+      
+      // Upload image to Cloudinary
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: 'hosfind/categories',
+        transformation: [
+          { width: 400, height: 300, crop: 'fill' },
+          { quality: 'auto' }
+        ]
+      });
+
+      // Delete local file
+      fs.unlinkSync(req.file.path);
+
+      const category = categoryRepository.create({
+        name: req.body.name,
+        description: req.body.description,
+        imageUrl: result.secure_url,
+        cloudinaryPublicId: result.public_id,
+        type: req.body.type || 'hostel',
+        displayOrder: parseInt(req.body.displayOrder) || 0
+      });
+
+      await categoryRepository.save(category);
+
+      res.status(201).json({
+        success: true,
+        message: 'Category created successfully',
+        data: category.toJSON()
+      });
+    } catch (error) {
+      // Clean up local file if upload fails
+      if (req.file && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+      next(error);
+    }
+  },
+
+  async updateCategory(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      
+      if (!id) {
+        const error = new Error('Category ID is required') as AppError;
+        error.statusCode = 400;
+        return next(error);
+      }
+
+      const categoryRepository = AppDataSource.getRepository(Category);
+      
+      const category = await categoryRepository.findOne({ where: { id } });
+      if (!category) {
+        const error = new Error('Category not found') as AppError;
+        error.statusCode = 404;
+        return next(error);
+      }
+
+      // Handle image update if new image is provided
+      if (req.file) {
+        // Delete old image from Cloudinary
+        if (category.cloudinaryPublicId) {
+          await cloudinary.uploader.destroy(category.cloudinaryPublicId);
+        }
+
+        // Upload new image
+        const result = await cloudinary.uploader.upload(req.file.path, {
+          folder: 'hosfind/categories',
+          transformation: [
+            { width: 400, height: 300, crop: 'fill' },
+            { quality: 'auto' }
+          ]
+        });
+
+        // Delete local file
+        fs.unlinkSync(req.file.path);
+
+        category.imageUrl = result.secure_url;
+        category.cloudinaryPublicId = result.public_id;
+      }
+
+      // Update other fields
+      if (req.body.name) category.name = req.body.name;
+      if (req.body.description !== undefined) category.description = req.body.description;
+      if (req.body.type) category.type = req.body.type;
+      if (req.body.displayOrder !== undefined) category.displayOrder = parseInt(req.body.displayOrder);
+      if (req.body.isActive !== undefined) category.isActive = req.body.isActive;
+
+      await categoryRepository.save(category);
+
+      res.json({
+        success: true,
+        message: 'Category updated successfully',
+        data: category.toJSON()
+      });
+    } catch (error) {
+      // Clean up local file if upload fails
+      if (req.file && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+      next(error);
+    }
+  },
+
+  async deleteCategory(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const categoryRepository = AppDataSource.getRepository(Category);
+      
+      const category = await categoryRepository.findOne({ where: { id } });
+      if (!category) {
+        const error = new Error('Category not found') as AppError;
+        error.statusCode = 404;
+        return next(error);
+      }
+
+      // Check if category has properties
+      const propertyRepository = AppDataSource.getRepository(Property);
+      const propertyCount = await propertyRepository.count({ where: { categoryId: id } });
+      
+      if (propertyCount > 0) {
+        const error = new Error('Cannot delete category with existing properties') as AppError;
+        error.statusCode = 400;
+        return next(error);
+      }
+
+      // Delete image from Cloudinary
+      if (category.cloudinaryPublicId) {
+        await cloudinary.uploader.destroy(category.cloudinaryPublicId);
+      }
+
+      await categoryRepository.remove(category);
+
+      res.json({
+        success: true,
+        message: 'Category deleted successfully'
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getCategories(req: Request, res: Response, next: NextFunction) {
+    try {
+      const categoryRepository = AppDataSource.getRepository(Category);
+      
+      const categories = await categoryRepository.find({
+        where: { isActive: true },
+        order: { displayOrder: 'ASC', createdAt: 'DESC' }
+      });
+
+      res.json({
+        success: true,
+        data: categories.map(cat => cat.toJSON())
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  // Property Management
+  async createProperty(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.files || !req.files.length) {
+        const error = new Error('Property images are required') as AppError;
+        error.statusCode = 400;
+        return next(error);
+      }
+
+      const propertyRepository = AppDataSource.getRepository(Property);
+      const categoryRepository = AppDataSource.getRepository(Category);
+      
+      // Verify category exists
+      const category = await categoryRepository.findOne({ where: { id: req.body.categoryId } });
+      if (!category) {
+        const error = new Error('Invalid category') as AppError;
+        error.statusCode = 400;
+        return next(error);
+      }
+
+      const files = Array.isArray(req.files) ? req.files : [req.files];
+      const imageUrls: string[] = [];
+      const cloudinaryIds: string[] = [];
+
+      // Upload all images to Cloudinary
+      for (const file of files) {
+        const result = await cloudinary.uploader.upload(file.path, {
+          folder: 'hosfind/properties',
+          transformation: [
+            { width: 800, height: 600, crop: 'fill' },
+            { quality: 'auto' }
+          ]
+        });
+
+        imageUrls.push(result.secure_url);
+        cloudinaryIds.push(result.public_id);
+
+        // Delete local file
+        fs.unlinkSync(file.path);
+      }
+
+      const property = propertyRepository.create({
+        name: req.body.name,
+        description: req.body.description,
+        mainImageUrl: imageUrls[0],
+        mainImageCloudinaryId: cloudinaryIds[0],
+        additionalImageUrls: imageUrls.slice(1),
+        additionalImageCloudinaryIds: cloudinaryIds.slice(1),
+        location: req.body.location,
+        city: req.body.city,
+        region: req.body.region,
+        price: parseFloat(req.body.price),
+        currency: req.body.currency || '₵',
+        rating: parseFloat(req.body.rating) || 0,
+        propertyType: req.body.propertyType || 'hostel',
+        isFeatured: req.body.isFeatured === 'true',
+        displayOrder: parseInt(req.body.displayOrder) || 0,
+        categoryId: req.body.categoryId
+      });
+
+      await propertyRepository.save(property);
+
+      // Update category property count
+      category.propertyCount += 1;
+      await categoryRepository.save(category);
+
+      res.status(201).json({
+        success: true,
+        message: 'Property created successfully',
+        data: property.toJSON()
+      });
+    } catch (error) {
+      // Clean up local files if upload fails
+      if (req.files) {
+        const files = Array.isArray(req.files) ? req.files : [req.files];
+        files.forEach(file => {
+          if (fs.existsSync(file.path)) {
+            fs.unlinkSync(file.path);
+          }
+        });
+      }
+      next(error);
+    }
+  },
+
+  async updateProperty(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const propertyRepository = AppDataSource.getRepository(Property);
+      
+      const property = await propertyRepository.findOne({ where: { id } });
+      if (!property) {
+        const error = new Error('Property not found') as AppError;
+        error.statusCode = 404;
+        return next(error);
+      }
+
+      // Handle image updates if new images are provided
+      if (req.files && req.files.length > 0) {
+        const files = Array.isArray(req.files) ? req.files : [req.files];
+        
+        // Delete old images from Cloudinary
+        if (property.mainImageCloudinaryId) {
+          await cloudinary.uploader.destroy(property.mainImageCloudinaryId);
+        }
+        
+        if (property.additionalImageCloudinaryIds) {
+          for (const cloudinaryId of property.additionalImageCloudinaryIds) {
+            await cloudinary.uploader.destroy(cloudinaryId);
+          }
+        }
+
+        const imageUrls: string[] = [];
+        const cloudinaryIds: string[] = [];
+
+        // Upload new images
+        for (const file of files) {
+          const result = await cloudinary.uploader.upload(file.path, {
+            folder: 'hosfind/properties',
+            transformation: [
+              { width: 800, height: 600, crop: 'fill' },
+              { quality: 'auto' }
+            ]
+          });
+
+          imageUrls.push(result.secure_url);
+          cloudinaryIds.push(result.public_id);
+
+          // Delete local file
+          fs.unlinkSync(file.path);
+        }
+
+        property.mainImageUrl = imageUrls[0];
+        property.mainImageCloudinaryId = cloudinaryIds[0];
+        property.additionalImageUrls = imageUrls.slice(1);
+        property.additionalImageCloudinaryIds = cloudinaryIds.slice(1);
+      }
+
+      // Update other fields
+      if (req.body.name) property.name = req.body.name;
+      if (req.body.description) property.description = req.body.description;
+      if (req.body.location) property.location = req.body.location;
+      if (req.body.city) property.city = req.body.city;
+      if (req.body.region) property.region = req.body.region;
+      if (req.body.price) property.price = parseFloat(req.body.price);
+      if (req.body.currency) property.currency = req.body.currency;
+      if (req.body.rating) property.rating = parseFloat(req.body.rating);
+      if (req.body.propertyType) property.propertyType = req.body.propertyType;
+      if (req.body.status) property.status = req.body.status;
+      if (req.body.isFeatured !== undefined) property.isFeatured = req.body.isFeatured === 'true';
+      if (req.body.isActive !== undefined) property.isActive = req.body.isActive;
+      if (req.body.displayOrder !== undefined) property.displayOrder = parseInt(req.body.displayOrder);
+
+      await propertyRepository.save(property);
+
+      res.json({
+        success: true,
+        message: 'Property updated successfully',
+        data: property.toJSON()
+      });
+    } catch (error) {
+      // Clean up local files if upload fails
+      if (req.files) {
+        const files = Array.isArray(req.files) ? req.files : [req.files];
+        files.forEach(file => {
+          if (fs.existsSync(file.path)) {
+            fs.unlinkSync(file.path);
+          }
+        });
+      }
+      next(error);
+    }
+  },
+
+  async deleteProperty(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const propertyRepository = AppDataSource.getRepository(Property);
+      
+      const property = await propertyRepository.findOne({ where: { id } });
+      if (!property) {
+        const error = new Error('Property not found') as AppError;
+        error.statusCode = 404;
+        return next(error);
+      }
+
+      // Delete images from Cloudinary
+      if (property.mainImageCloudinaryId) {
+        await cloudinary.uploader.destroy(property.mainImageCloudinaryId);
+      }
+      
+      if (property.additionalImageCloudinaryIds) {
+        for (const cloudinaryId of property.additionalImageCloudinaryIds) {
+          await cloudinary.uploader.destroy(cloudinaryId);
+        }
+      }
+
+      // Update category property count
+      if (property.categoryId) {
+        const categoryRepository = AppDataSource.getRepository(Category);
+        const category = await categoryRepository.findOne({ where: { id: property.categoryId } });
+        if (category && category.propertyCount > 0) {
+          category.propertyCount -= 1;
+          await categoryRepository.save(category);
+        }
+      }
+
+      await propertyRepository.remove(property);
+
+      res.json({
+        success: true,
+        message: 'Property deleted successfully'
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getProperties(req: Request, res: Response, next: NextFunction) {
+    try {
+      const propertyRepository = AppDataSource.getRepository(Property);
+      
+      const properties = await propertyRepository.find({
+        where: { isActive: true },
+        relations: ['category'],
+        order: { displayOrder: 'ASC', createdAt: 'DESC' }
+      });
+
+      res.json({
+        success: true,
+        data: properties.map(prop => prop.toJSON())
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getFeaturedProperties(req: Request, res: Response, next: NextFunction) {
+    try {
+      const propertyRepository = AppDataSource.getRepository(Property);
+      
+      const properties = await propertyRepository.find({
+        where: { isActive: true, isFeatured: true },
+        relations: ['category'],
+        order: { displayOrder: 'ASC', rating: 'DESC' },
+        take: 10
+      });
+
+      res.json({
+        success: true,
+        data: properties.map(prop => prop.toJSON())
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getPropertiesByRegion(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { region } = req.params;
+      const propertyRepository = AppDataSource.getRepository(Property);
+      
+      const properties = await propertyRepository.find({
+        where: { isActive: true, region },
+        relations: ['category'],
+        order: { displayOrder: 'ASC', rating: 'DESC' }
+      });
+
+      res.json({
+        success: true,
+        data: properties.map(prop => prop.toJSON())
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  // Get properties by category
+  async getPropertiesByCategory(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { categoryId } = req.params;
+      const { page = 1, limit = 20, sortBy = 'rating', sortOrder = 'DESC' } = req.query;
+      
+      const propertyRepository = AppDataSource.getRepository(Property);
+      
+      const queryBuilder = propertyRepository.createQueryBuilder('property')
+        .leftJoinAndSelect('property.category', 'category')
+        .where('property.categoryId = :categoryId', { categoryId })
+        .andWhere('property.isActive = :isActive', { isActive: true });
+
+      // Apply sorting
+      if (sortBy === 'price') {
+        queryBuilder.orderBy('property.price', sortOrder === 'ASC' ? 'ASC' : 'DESC');
+      } else if (sortBy === 'rating') {
+        queryBuilder.orderBy('property.rating', sortOrder === 'ASC' ? 'ASC' : 'DESC');
+      } else if (sortBy === 'newest') {
+        queryBuilder.orderBy('property.createdAt', 'DESC');
+      } else {
+        queryBuilder.orderBy('property.displayOrder', 'ASC');
+      }
+
+      const [properties, total] = await queryBuilder
+        .skip((Number(page) - 1) * Number(limit))
+        .take(Number(limit))
+        .getManyAndCount();
+
+      res.json({
+        success: true,
+        data: {
+          properties: properties.map(prop => prop.toJSON()),
+          pagination: {
+            page: Number(page),
+            limit: Number(limit),
+            total,
+            pages: Math.ceil(total / Number(limit))
+          }
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  // Search properties
+  async searchProperties(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { 
+        q = '', 
+        categoryId = '', 
+        propertyType = '', 
+        minPrice = '', 
+        maxPrice = '', 
+        minRating = '',
+        region = '',
+        city = '',
+        page = 1, 
+        limit = 20 
+      } = req.query;
+
+      const propertyRepository = AppDataSource.getRepository(Property);
+      const queryBuilder = propertyRepository.createQueryBuilder('property')
+        .leftJoinAndSelect('property.category', 'category')
+        .where('property.isActive = :isActive', { isActive: true });
+
+      // Apply search query
+      if (q) {
+        queryBuilder.andWhere(
+          '(property.name ILIKE :search OR property.description ILIKE :search OR property.location ILIKE :search)',
+          { search: `%${q}%` }
+        );
+      }
+
+      // Apply filters
+      if (categoryId) {
+        queryBuilder.andWhere('property.categoryId = :categoryId', { categoryId });
+      }
+
+      if (propertyType) {
+        queryBuilder.andWhere('property.propertyType = :propertyType', { propertyType });
+      }
+
+      if (minPrice) {
+        queryBuilder.andWhere('property.price >= :minPrice', { minPrice: parseFloat(minPrice as string) });
+      }
+
+      if (maxPrice) {
+        queryBuilder.andWhere('property.price <= :maxPrice', { maxPrice: parseFloat(maxPrice as string) });
+      }
+
+      if (minRating) {
+        queryBuilder.andWhere('property.rating >= :minRating', { minRating: parseFloat(minRating as string) });
+      }
+
+      if (region) {
+        queryBuilder.andWhere('property.region ILIKE :region', { region: `%${region}%` });
+      }
+
+      if (city) {
+        queryBuilder.andWhere('property.city ILIKE :city', { city: `%${city}%` });
+      }
+
+      const [properties, total] = await queryBuilder
+        .orderBy('property.rating', 'DESC')
+        .addOrderBy('property.displayOrder', 'ASC')
+        .skip((Number(page) - 1) * Number(limit))
+        .take(Number(limit))
+        .getManyAndCount();
+
+      res.json({
+        success: true,
+        data: {
+          properties: properties.map(prop => prop.toJSON()),
+          pagination: {
+            page: Number(page),
+            limit: Number(limit),
+            total,
+            pages: Math.ceil(total / Number(limit))
+          }
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  // Get property details by ID
+  async getPropertyById(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const propertyRepository = AppDataSource.getRepository(Property);
+      
+      const property = await propertyRepository.findOne({
+        where: { id, isActive: true },
+        relations: ['category']
+      });
+
+      if (!property) {
+        const error = new Error('Property not found') as AppError;
+        error.statusCode = 404;
+        return next(error);
+      }
+
+      res.json({
+        success: true,
+        data: property.toJSON()
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  // Get properties by property type
+  async getPropertiesByType(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { type } = req.params;
+      const { page = 1, limit = 20 } = req.query;
+      
+      const propertyRepository = AppDataSource.getRepository(Property);
+      
+      const [properties, total] = await propertyRepository.findAndCount({
+        where: { propertyType: type, isActive: true },
+        relations: ['category'],
+        order: { rating: 'DESC', displayOrder: 'ASC' },
+        skip: (Number(page) - 1) * Number(limit),
+        take: Number(limit)
+      });
+
+      res.json({
+        success: true,
+        data: {
+          properties: properties.map(prop => prop.toJSON()),
+          pagination: {
+            page: Number(page),
+            limit: Number(limit),
+            total,
+            pages: Math.ceil(total / Number(limit))
+          }
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+}; 

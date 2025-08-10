@@ -1,15 +1,25 @@
 import { Router } from 'express';
-import { userController } from '../controllers/userController';
+import { UserController } from '../controllers/userController';
 import { authenticateToken } from '../middleware/authenticateToken';
-
+import { body } from 'express-validator';
 const router = Router();
-
-// Protected routes - require authentication
+router.get('/categories', UserController.getCategories);
+router.get('/properties', UserController.getProperties);
+router.get('/properties/featured', UserController.getFeaturedProperties);
+router.get('/properties/search', UserController.searchProperties);
+router.get('/properties/category/:categoryId', UserController.getPropertiesByCategory);
+router.get('/properties/type/:type', UserController.getPropertiesByType);
+router.get('/properties/region/:region', UserController.getPropertiesByRegion);
+router.get('/properties/:id', UserController.getPropertyById);
 router.use(authenticateToken);
-
-// User profile routes
-router.get('/profile', userController.getProfile);
-router.put('/profile', userController.updateProfile);
-router.delete('/profile', userController.deleteProfile);
-
+router.get('/profile', UserController.getProfile);
+router.put('/profile', [
+  body('fullName').optional().trim().isLength({ min: 2 }),
+  body('email').optional().isEmail().normalizeEmail(),
+  body('phoneNumber').optional().isMobilePhone('any'),
+  body('location').optional().trim(),
+  body('gender').optional().isIn(['male', 'female', 'other']),
+  body('password').optional().isLength({ min: 6 })
+], UserController.updateProfile);
+router.delete('/profile', UserController.deleteProfile);
 export default router; 

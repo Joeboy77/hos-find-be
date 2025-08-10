@@ -2,10 +2,7 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import { validateRequest } from '../middleware/validateRequest';
 import { authController } from '../controllers/authController';
-
 const router = Router();
-
-// Validation rules
 const signupValidation = [
   body('fullName')
     .trim()
@@ -36,7 +33,6 @@ const signupValidation = [
     .isIn(['male', 'female'])
     .withMessage('Gender must be either male or female')
 ];
-
 const loginValidation = [
   body('phoneNumber')
     .notEmpty()
@@ -45,11 +41,8 @@ const loginValidation = [
     .notEmpty()
     .withMessage('Password is required')
 ];
-
-// Routes
 router.post('/signup', signupValidation, validateRequest, authController.signup);
 router.post('/login', loginValidation, validateRequest, authController.login);
 router.post('/refresh-token', authController.refreshToken);
 router.post('/logout', authController.logout);
-
 export default router; 
