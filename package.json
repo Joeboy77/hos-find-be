@@ -13,7 +13,8 @@
     "migration:revert": "yarn typeorm migration:revert -d src/config/database.ts",
     "db:seed": "ts-node src/scripts/seed.ts",
     "db:setup": "ts-node src/scripts/setup-db.ts",
-    "admin:create": "ts-node src/scripts/create-admin.ts"
+    "admin:create": "ts-node src/scripts/create-admin.ts",
+    "sample:create": "ts-node src/scripts/create-sample-properties.ts"
   },
   "keywords": [
     "hostel",

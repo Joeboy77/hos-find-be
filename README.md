@@ -86,6 +86,52 @@ All admin endpoints include comprehensive validation:
 4. Create admin account: `yarn admin:create`
 5. Start development server: `yarn dev`
 
+## Database Scripts
+
+### Setup Scripts
+
+#### Create Admin User
+```bash
+# Create the first admin user
+yarn admin:create
+# or
+npm run admin:create
+# or directly
+npx ts-node src/scripts/create-admin.ts
+```
+
+#### Create Sample Data
+```bash
+# Populate database with sample categories and properties
+yarn sample:create
+# or
+npm run sample:create
+# or directly
+npx ts-node src/scripts/create-sample-properties.ts
+```
+
+### Database Commands
+
+#### Create Database
+```bash
+# Connect to PostgreSQL and create database
+psql -U postgres -h localhost -c "CREATE DATABASE hosfind;"
+```
+
+#### Run Migrations
+```bash
+# Generate and run database migrations
+yarn typeorm migration:generate -- -n InitialMigration
+yarn typeorm migration:run
+```
+
+#### Reset Database
+```bash
+# Drop and recreate database (WARNING: This will delete all data)
+psql -U postgres -h localhost -c "DROP DATABASE IF EXISTS hosfind;"
+psql -U postgres -h localhost -c "CREATE DATABASE hosfind;"
+```
+
 ## Environment Variables
 
 ```env

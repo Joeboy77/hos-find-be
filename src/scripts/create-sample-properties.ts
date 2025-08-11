@@ -23,7 +23,7 @@ async function createSampleProperties() {
           name: catData.name,
           type: catData.type,
           description: catData.description,
-          imageUrl: 'https:
+          imageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop',
           displayOrder: 0
         });
         await categoryRepository.save(category);
@@ -35,7 +35,7 @@ async function createSampleProperties() {
       {
         name: 'KNUST Student Hostel',
         description: 'Modern student accommodation near KNUST campus with 24/7 security and WiFi',
-        mainImageUrl: 'https:
+        mainImageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop',
         location: 'KNUST Campus',
         city: 'Kumasi',
         region: 'Ashanti',
@@ -51,7 +51,7 @@ async function createSampleProperties() {
       {
         name: 'Accra Central Hostel',
         description: 'Affordable hostel in the heart of Accra with easy access to transportation',
-        mainImageUrl: 'https:
+        mainImageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop',
         location: 'Accra Central',
         city: 'Accra',
         region: 'Greater Accra',
@@ -67,7 +67,7 @@ async function createSampleProperties() {
       {
         name: 'Luxury Accra Hotel',
         description: '5-star luxury hotel with premium amenities and city views',
-        mainImageUrl: 'https:
+        mainImageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop',
         location: 'East Legon',
         city: 'Accra',
         region: 'Greater Accra',
@@ -83,7 +83,7 @@ async function createSampleProperties() {
       {
         name: 'Kumasi Central Hotel',
         description: 'Comfortable hotel in the heart of Kumasi with business facilities',
-        mainImageUrl: 'https:
+        mainImageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop',
         location: 'Kumasi Central',
         city: 'Kumasi',
         region: 'Ashanti',
@@ -99,7 +99,7 @@ async function createSampleProperties() {
       {
         name: 'Cozy Cape Coast Homestay',
         description: 'Warm and welcoming homestay with local family experience',
-        mainImageUrl: 'https:
+        mainImageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop',
         location: 'Cape Coast Central',
         city: 'Cape Coast',
         region: 'Central',
@@ -115,7 +115,7 @@ async function createSampleProperties() {
       {
         name: 'Elmina Guest House',
         description: 'Charming guest house with ocean views and local cuisine',
-        mainImageUrl: 'https:
+        mainImageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop',
         location: 'Elmina',
         city: 'Elmina',
         region: 'Central',
@@ -131,7 +131,7 @@ async function createSampleProperties() {
       {
         name: 'Modern Accra Apartment',
         description: 'Fully furnished modern apartment with all amenities',
-        mainImageUrl: 'https:
+        mainImageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop',   
         location: 'Osu',
         city: 'Accra',
         region: 'Greater Accra',
