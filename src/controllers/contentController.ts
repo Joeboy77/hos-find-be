@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import { AppDataSource } from '../config/database';
 import { Category } from '../models/Category';
 import { Property } from '../models/Property';
+import { RoomType } from '../models/RoomType';
+import { Like } from '../models/Like';
 import { AppError } from '../middleware/errorHandler';
 import cloudinary from '../config/cloudinary';
 import fs from 'fs';
@@ -199,6 +201,8 @@ export const contentController = {
         currency: req.body.currency || '₵',
         rating: parseFloat(req.body.rating) || 0,
         propertyType: req.body.propertyType || 'hostel',
+        roomType: req.body.roomType,
+        imageRoomTypes: req.body.imageRoomTypes ? JSON.parse(req.body.imageRoomTypes) : [],
         isFeatured: req.body.isFeatured === 'true',
         displayOrder: parseInt(req.body.displayOrder) || 0,
         categoryId: req.body.categoryId
@@ -271,6 +275,8 @@ export const contentController = {
       if (req.body.currency) property.currency = req.body.currency;
       if (req.body.rating) property.rating = parseFloat(req.body.rating);
       if (req.body.propertyType) property.propertyType = req.body.propertyType;
+      if (req.body.roomType) property.roomType = req.body.roomType;
+      if (req.body.imageRoomTypes) property.imageRoomTypes = JSON.parse(req.body.imageRoomTypes);
       if (req.body.status) property.status = req.body.status;
       if (req.body.isFeatured !== undefined) property.isFeatured = req.body.isFeatured === 'true';
       if (req.body.isActive !== undefined) property.isActive = req.body.isActive;
@@ -333,7 +339,7 @@ export const contentController = {
       const propertyRepository = AppDataSource.getRepository(Property);
       const properties = await propertyRepository.find({
         where: { isActive: true },
-        relations: ['category'],
+        relations: ['category', 'roomTypes'],
         order: { displayOrder: 'ASC', createdAt: 'DESC' }
       });
       res.json({
@@ -487,18 +493,38 @@ export const contentController = {
     try {
       const { id } = req.params;
       const propertyRepository = AppDataSource.getRepository(Property);
+      const roomTypeRepository = AppDataSource.getRepository(RoomType);
+      const likeRepository = AppDataSource.getRepository(Like);
+      
       const property = await propertyRepository.findOne({
         where: { id, isActive: true },
         relations: ['category']
       });
+      
       if (!property) {
         const error = new Error('Property not found') as AppError;
         error.statusCode = 404;
         return next(error);
       }
+
+      // Load room types separately
+      const roomTypes = await roomTypeRepository.find({
+        where: { propertyId: id, isActive: true },
+        order: { displayOrder: 'ASC', price: 'ASC' }
+      });
+
+      // Get like count
+      const likeCount = await likeRepository.count({
+        where: { propertyId: id }
+      });
+
+      const propertyData = property.toJSON();
+      propertyData.roomTypes = roomTypes.map(rt => rt.toJSON());
+      propertyData.likeCount = likeCount;
+
       res.json({
         success: true,
-        data: property.toJSON()
+        data: propertyData
       });
     } catch (error) {
       next(error);
@@ -511,7 +537,7 @@ export const contentController = {
       const propertyRepository = AppDataSource.getRepository(Property);
       const [properties, total] = await propertyRepository.findAndCount({
         where: { propertyType: type as any, isActive: true },
-        relations: ['category'],
+        relations: ['category', 'roomTypes'],
         order: { rating: 'DESC', displayOrder: 'ASC' },
         skip: (Number(page) - 1) * Number(limit),
         take: Number(limit)
@@ -527,6 +553,124 @@ export const contentController = {
             pages: Math.ceil(total / Number(limit))
           }
         }
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  // Room Type Management
+  async createRoomType(req: Request, res: Response, next: NextFunction) {
+    try {
+      const roomTypeRepository = AppDataSource.getRepository(RoomType);
+      const propertyRepository = AppDataSource.getRepository(Property);
+      
+      const property = await propertyRepository.findOne({ where: { id: req.body.propertyId } });
+      if (!property) {
+        const error = new Error('Property not found') as AppError;
+        error.statusCode = 404;
+        return next(error);
+      }
+
+      const roomType = roomTypeRepository.create({
+        name: req.body.name,
+        description: req.body.description,
+        price: parseFloat(req.body.price),
+        currency: req.body.currency || '₵',
+        genderType: req.body.genderType || 'any',
+        capacity: parseInt(req.body.capacity) || 1,
+        roomTypeCategory: req.body.roomTypeCategory,
+        isAvailable: req.body.isAvailable !== 'false',
+        availableRooms: parseInt(req.body.availableRooms) || 0,
+        totalRooms: parseInt(req.body.totalRooms) || 0,
+        amenities: req.body.amenities ? JSON.parse(req.body.amenities) : [],
+        imageUrl: req.body.imageUrl,
+        propertyId: req.body.propertyId,
+        displayOrder: parseInt(req.body.displayOrder) || 0
+      });
+
+      await roomTypeRepository.save(roomType);
+      res.status(201).json({
+        success: true,
+        message: 'Room type created successfully',
+        data: roomType.toJSON()
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async updateRoomType(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const roomTypeRepository = AppDataSource.getRepository(RoomType);
+      const roomType = await roomTypeRepository.findOne({ where: { id } });
+      
+      if (!roomType) {
+        const error = new Error('Room type not found') as AppError;
+        error.statusCode = 404;
+        return next(error);
+      }
+
+      if (req.body.name) roomType.name = req.body.name;
+      if (req.body.description !== undefined) roomType.description = req.body.description;
+      if (req.body.price) roomType.price = parseFloat(req.body.price);
+      if (req.body.currency) roomType.currency = req.body.currency;
+      if (req.body.genderType) roomType.genderType = req.body.genderType;
+      if (req.body.capacity) roomType.capacity = parseInt(req.body.capacity);
+      if (req.body.roomTypeCategory) roomType.roomTypeCategory = req.body.roomTypeCategory;
+      if (req.body.isAvailable !== undefined) roomType.isAvailable = req.body.isAvailable === 'true';
+      if (req.body.availableRooms !== undefined) roomType.availableRooms = parseInt(req.body.availableRooms);
+      if (req.body.totalRooms !== undefined) roomType.totalRooms = parseInt(req.body.totalRooms);
+      if (req.body.amenities) roomType.amenities = JSON.parse(req.body.amenities);
+      if (req.body.imageUrl) roomType.imageUrl = req.body.imageUrl;
+      if (req.body.displayOrder !== undefined) roomType.displayOrder = parseInt(req.body.displayOrder);
+      if (req.body.isActive !== undefined) roomType.isActive = req.body.isActive === 'true';
+
+      await roomTypeRepository.save(roomType);
+      res.json({
+        success: true,
+        message: 'Room type updated successfully',
+        data: roomType.toJSON()
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async deleteRoomType(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const roomTypeRepository = AppDataSource.getRepository(RoomType);
+      const roomType = await roomTypeRepository.findOne({ where: { id } });
+      
+      if (!roomType) {
+        const error = new Error('Room type not found') as AppError;
+        error.statusCode = 404;
+        return next(error);
+      }
+
+      await roomTypeRepository.remove(roomType);
+      res.json({
+        success: true,
+        message: 'Room type deleted successfully'
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getRoomTypesByProperty(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { propertyId } = req.params;
+      const roomTypeRepository = AppDataSource.getRepository(RoomType);
+      const roomTypes = await roomTypeRepository.find({
+        where: { propertyId, isActive: true },
+        order: { displayOrder: 'ASC', price: 'ASC' }
+      });
+      res.json({
+        success: true,
+        data: roomTypes.map(rt => rt.toJSON())
       });
     } catch (error) {
       next(error);
