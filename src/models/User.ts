@@ -6,10 +6,12 @@ import {
   UpdateDateColumn,
   BeforeInsert,
   BeforeUpdate,
-  Index
+  Index,
+  OneToMany
 } from 'typeorm';
 import { IsEmail, MinLength, IsNotEmpty } from 'class-validator';
 import bcrypt from 'bcryptjs';
+import { Like } from './Like';
 export enum Gender {
   MALE = 'male',
   FEMALE = 'female'
@@ -56,6 +58,10 @@ export class User {
   refreshToken: string | null;
   @Column({ type: 'timestamp', nullable: true })
   refreshTokenExpiresAt: Date | null;
+
+  @OneToMany(() => Like, like => like.user, { cascade: true })
+  likes: Like[];
+
   @CreateDateColumn()
   createdAt: Date;
   @UpdateDateColumn()
@@ -71,7 +77,7 @@ export class User {
     return bcrypt.compare(candidatePassword, this.password);
   }
   toPublicJSON() {
-    const { password, refreshToken, refreshTokenExpiresAt, ...publicData } = this;
+    const { password, refreshToken, refreshTokenExpiresAt, likes, ...publicData } = this;
     return publicData;
   }
 } 

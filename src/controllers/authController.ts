@@ -144,7 +144,11 @@ export const authController = {
         success: true,
         message: 'Token refreshed successfully',
         data: {
-          accessToken
+          user: user.toPublicJSON(),
+          tokens: {
+            accessToken,
+            refreshToken: user.refreshToken
+          }
         }
       });
     } catch (error) {

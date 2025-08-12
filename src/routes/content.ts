@@ -11,7 +11,17 @@ router.get('/properties/region/:region', contentController.getPropertiesByRegion
 router.get('/properties/category/:categoryId', contentController.getPropertiesByCategory);
 router.get('/properties/type/:type', contentController.getPropertiesByType);
 router.get('/properties/search', contentController.searchProperties);
+
+// Room Type Routes (must come before /properties/:id to avoid conflicts)
+router.get('/properties/:propertyId/room-types', contentController.getRoomTypesByProperty);
+
+// Property Routes
 router.get('/properties/:id', contentController.getPropertyById);
+router.post('/admin/room-types', authenticateAdmin, contentController.createRoomType);
+router.put('/admin/room-types/:id', authenticateAdmin, contentController.updateRoomType);
+router.delete('/admin/room-types/:id', authenticateAdmin, contentController.deleteRoomType);
+
+// Admin Routes
 router.post('/admin/categories', authenticateAdmin, uploadSingle, contentController.createCategory);
 router.put('/admin/categories/:id', authenticateAdmin, uploadSingle, contentController.updateCategory);
 router.delete('/admin/categories/:id', authenticateAdmin, contentController.deleteCategory);
