@@ -43,8 +43,7 @@ export const authController = {
         email: req.body.email,
         password: req.body.password,
         phoneNumber: req.body.phoneNumber,
-        location: req.body.location,
-        gender: req.body.gender
+        location: req.body.location
       });
       await userRepository.save(user);
       const { accessToken, refreshToken } = generateTokens(user);

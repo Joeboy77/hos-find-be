@@ -181,5 +181,30 @@ export const likeController = {
     } catch (error) {
       next(error);
     }
+  },
+
+  async getUserLikeCount(req: UserRequest, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) {
+        const error = new Error('User not authenticated') as AppError;
+        error.statusCode = 401;
+        return next(error);
+      }
+
+      const likeRepository = AppDataSource.getRepository(Like);
+
+      const count = await likeRepository.count({
+        where: { userId: req.user.id }
+      });
+
+      res.json({
+        success: true,
+        data: {
+          totalLikes: count
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
   }
 }; 
