@@ -28,10 +28,7 @@ const signupValidation = [
   body('location')
     .trim()
     .isLength({ min: 2, max: 100 })
-    .withMessage('Location must be between 2 and 100 characters'),
-  body('gender')
-    .isIn(['male', 'female'])
-    .withMessage('Gender must be either male or female')
+    .withMessage('Location must be between 2 and 100 characters')
 ];
 const loginValidation = [
   body('phoneNumber')

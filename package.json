@@ -14,7 +14,11 @@
     "db:seed": "ts-node src/scripts/seed.ts",
     "db:setup": "ts-node src/scripts/setup-db.ts",
     "admin:create": "ts-node src/scripts/create-admin.ts",
-    "sample:create": "ts-node src/scripts/create-sample-properties.ts"
+    "sample:create": "ts-node src/scripts/create-sample-properties.ts",
+    "remove:gender": "ts-node src/scripts/remove-gender-column.ts",
+    "db:check": "ts-node src/scripts/check-database.ts",
+    "test:like": "ts-node src/scripts/test-like-entity.ts",
+    "test:server-like": "ts-node src/scripts/test-server-like.ts"
   },
   "keywords": [
     "hostel",

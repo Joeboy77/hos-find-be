@@ -18,7 +18,6 @@ router.put('/profile', [
   body('email').optional().isEmail().normalizeEmail(),
   body('phoneNumber').optional().isMobilePhone('any'),
   body('location').optional().trim(),
-  body('gender').optional().isIn(['male', 'female', 'other']),
   body('password').optional().isLength({ min: 6 })
 ], UserController.updateProfile);
 router.delete('/profile', UserController.deleteProfile);

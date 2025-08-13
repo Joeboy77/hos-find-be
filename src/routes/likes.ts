@@ -33,6 +33,9 @@ router.delete('/properties/:propertyId/like', likeController.unlikeProperty);
 // Get user's liked properties
 router.get('/user/likes', likeController.getUserLikes);
 
+// Get user's total like count
+router.get('/user/likes/count', likeController.getUserLikeCount);
+
 // Check if user has liked a specific property
 router.get('/properties/:propertyId/liked', likeController.checkIfLiked);
 
