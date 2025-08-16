@@ -60,6 +60,9 @@ export class User {
   @Column({ type: 'timestamp', nullable: true })
   refreshTokenExpiresAt: Date | null;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  pushToken: string | null;
+
   @OneToMany(() => Like, like => like.user, { cascade: true })
   likes: Like[];
 

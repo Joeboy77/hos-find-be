@@ -7,6 +7,9 @@ import { Like } from '../models/Like';
 import { AppError } from '../middleware/errorHandler';
 import cloudinary from '../config/cloudinary';
 import fs from 'fs';
+import { NotificationController } from './notificationController';
+import { PushNotificationService } from '../services/pushNotificationService';
+import { NotificationType } from '../models/Notification';
 export const contentController = {
   async createCategory(req: Request, res: Response, next: NextFunction) {
     try {
@@ -210,6 +213,36 @@ export const contentController = {
       await propertyRepository.save(property);
       category.propertyCount += 1;
       await categoryRepository.save(category);
+
+      // Create notifications for all users about the new property
+      try {
+        await NotificationController.createNotificationForAllUsers(
+          'New Property Available!',
+          `${req.body.name} has been added to HosFind. Check it out now!`,
+          NotificationType.NEW_PROPERTY,
+          {
+            propertyId: property.id,
+            propertyName: req.body.name,
+            propertyType: req.body.propertyType || 'hostel',
+            propertyImage: property.mainImageUrl,
+            city: req.body.city,
+            region: req.body.region
+          }
+        );
+
+        // Send push notifications to all users
+        await PushNotificationService.sendNewPropertyNotification(
+          req.body.name,
+          property.id,
+          property.mainImageUrl
+        );
+
+        console.log('✅ Notifications created and push notifications sent for new property');
+      } catch (notificationError) {
+        console.error('⚠️ Error creating notifications:', notificationError);
+        // Don't fail the property creation if notifications fail
+      }
+
       res.status(201).json({
         success: true,
         message: 'Property created successfully',
@@ -671,6 +704,50 @@ export const contentController = {
       res.json({
         success: true,
         data: roomTypes.map(rt => rt.toJSON())
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getRoomTypeById(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const roomTypeRepository = AppDataSource.getRepository(RoomType);
+      const propertyRepository = AppDataSource.getRepository(Property);
+      
+      const roomType = await roomTypeRepository.findOne({
+        where: { id, isActive: true }
+      });
+      
+      if (!roomType) {
+        const error = new Error('Room type not found') as AppError;
+        error.statusCode = 404;
+        return next(error);
+      }
+
+      // Fetch property information separately
+      const property = await propertyRepository.findOne({
+        where: { id: roomType.propertyId, isActive: true }
+      });
+
+      const roomTypeData = roomType.toJSON();
+      
+      // Create response object with property information
+      const responseData = {
+        ...roomTypeData,
+        property: property ? {
+          id: property.id,
+          name: property.name,
+          propertyType: property.propertyType,
+          location: property.location,
+          city: property.city
+        } : null
+      };
+
+      res.json({
+        success: true,
+        data: responseData
       });
     } catch (error) {
       next(error);

@@ -52,6 +52,8 @@ router.post('/properties',
     body('location').trim().isLength({ min: 5, max: 200 }).withMessage('Location must be between 5 and 200 characters'),
     body('city').trim().isLength({ min: 2, max: 100 }).withMessage('City must be between 2 and 100 characters'),
     body('region').trim().isLength({ min: 2, max: 100 }).withMessage('Region must be between 5 and 200 characters'),
+    body('latitude').optional().isFloat({ min: -90, max: 90 }).withMessage('Latitude must be between -90 and 90'),
+    body('longitude').optional().isFloat({ min: -180, max: 180 }).withMessage('Longitude must be between -180 and 180'),
     body('price').isFloat({ min: 0.01 }).withMessage('Price must be a positive number'),
     body('propertyType').isIn(['hostel', 'hotel', 'homestay', 'apartment', 'guesthouse']).withMessage('Invalid property type'),
     body('roomType').optional().isLength({ max: 100 }).withMessage('Room type must be 100 characters or less'),
@@ -75,6 +77,8 @@ router.put('/properties/:id',
     body('location').optional().trim().isLength({ min: 5, max: 200 }).withMessage('Location must be between 5 and 200 characters'),
     body('city').optional().trim().isLength({ min: 2, max: 100 }).withMessage('City must be between 2 and 100 characters'),
     body('region').optional().trim().isLength({ min: 2, max: 100 }).withMessage('Region must be between 2 and 100 characters'),
+    body('latitude').optional().isFloat({ min: -90, max: 90 }).withMessage('Latitude must be between -90 and 90'),
+    body('longitude').optional().isFloat({ min: -180, max: 180 }).withMessage('Longitude must be between -180 and 180'),
     body('price').optional().isFloat({ min: 0.01 }).withMessage('Price must be a positive number'),
     body('propertyType').optional().isIn(['hostel', 'hotel', 'homestay', 'apartment', 'guesthouse']).withMessage('Invalid property type'),
     body('roomType').optional().isLength({ max: 100 }).withMessage('Room type must be 100 characters or less'),
@@ -92,6 +96,57 @@ router.put('/properties/:id',
 router.delete('/properties/:id', logRequest, authenticateAdmin, requireAdminRole(), AdminController.deleteProperty);
 router.patch('/properties/:id/status', logRequest, authenticateAdmin, requireAdminRole(), AdminController.updatePropertyStatus);
 router.patch('/properties/:id/rating', logRequest, authenticateAdmin, requireAdminRole(), AdminController.updatePropertyRating);
+// Room Type Management Routes
+router.post('/room-types', 
+  logRequest,
+  authenticateAdmin,
+  requireAdminRole(),
+  [
+    body('name').trim().isLength({ min: 2, max: 100 }).withMessage('Room type name must be between 2 and 100 characters'),
+    body('description').optional().trim().isLength({ min: 10 }).withMessage('Room type description must be at least 10 characters'),
+    body('price').isFloat({ min: 0.01 }).withMessage('Price must be a positive number'),
+    body('currency').optional().isLength({ max: 10 }).withMessage('Currency must be 10 characters or less'),
+    body('genderType').optional().isIn(['male', 'female', 'mixed', 'any']).withMessage('Invalid gender type'),
+    body('capacity').isInt({ min: 1 }).withMessage('Capacity must be at least 1'),
+    body('roomTypeCategory').optional().isLength({ max: 50 }).withMessage('Room type category must be 50 characters or less'),
+    body('isAvailable').optional().isBoolean().withMessage('isAvailable must be a boolean'),
+    body('availableRooms').optional().isInt({ min: 0 }).withMessage('Available rooms must be a non-negative integer'),
+    body('totalRooms').optional().isInt({ min: 1 }).withMessage('Total rooms must be at least 1'),
+    body('amenities').optional().isArray().withMessage('Amenities must be an array'),
+    body('imageUrl').optional().isURL().withMessage('Image URL must be a valid URL'),
+    body('propertyId').isUUID().withMessage('Property ID must be a valid UUID'),
+    body('displayOrder').optional().isInt({ min: 0 }).withMessage('Display order must be a non-negative integer')
+  ],
+  validateRequest,
+  AdminController.createRoomType
+);
+
+router.put('/room-types/:id', 
+  logRequest,
+  authenticateAdmin,
+  requireAdminRole(),
+  [
+    body('name').optional().trim().isLength({ min: 2, max: 100 }).withMessage('Room type name must be between 2 and 100 characters'),
+    body('description').optional().trim().isLength({ min: 10 }).withMessage('Room type description must be at least 10 characters'),
+    body('price').optional().isFloat({ min: 0.01 }).withMessage('Price must be a positive number'),
+    body('currency').optional().isLength({ max: 10 }).withMessage('Currency must be 10 characters or less'),
+    body('genderType').optional().isIn(['male', 'female', 'mixed', 'any']).withMessage('Invalid gender type'),
+    body('capacity').optional().isInt({ min: 1 }).withMessage('Capacity must be at least 1'),
+    body('roomTypeCategory').optional().isLength({ max: 50 }).withMessage('Room type category must be 50 characters or less'),
+    body('isAvailable').optional().isBoolean().withMessage('isAvailable must be a boolean'),
+    body('availableRooms').optional().isInt({ min: 0 }).withMessage('Available rooms must be a non-negative integer'),
+    body('totalRooms').optional().isInt({ min: 1 }).withMessage('Total rooms must be at least 1'),
+    body('amenities').optional().isArray().withMessage('Amenities must be an array'),
+    body('imageUrl').optional().isURL().withMessage('Image URL must be a valid URL'),
+    body('displayOrder').optional().isInt({ min: 0 }).withMessage('Display order must be a non-negative integer'),
+    body('isActive').optional().isBoolean().withMessage('isActive must be a boolean')
+  ],
+  validateRequest,
+  AdminController.updateRoomType
+);
+
+router.delete('/room-types/:id', logRequest, authenticateAdmin, requireAdminRole(), AdminController.deleteRoomType);
+
 router.patch('/properties/bulk-status', 
   logRequest,
   authenticateAdmin,

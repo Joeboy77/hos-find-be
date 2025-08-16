@@ -12,6 +12,7 @@ import userRoutes from './routes/user';
 import adminRoutes from './routes/admin';
 import contentRoutes from './routes/content';
 import likeRoutes from './routes/likes';
+import notificationRoutes from './routes/notifications';
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -48,6 +49,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/likes', likeRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/content/notifications', notificationRoutes);
 app.use(notFoundHandler);
 app.use(errorHandler);
 async function startServer() {

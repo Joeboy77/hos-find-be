@@ -71,6 +71,13 @@ export class Property {
   @Column({ type: 'varchar', length: 100 })
   @IsNotEmpty({ message: 'Property region is required' })
   region: string;
+  
+  @Column({ type: 'decimal', precision: 10, scale: 8, nullable: true })
+  latitude: number;
+  
+  @Column({ type: 'decimal', precision: 11, scale: 8, nullable: true })
+  longitude: number;
+  
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   @IsNumber({}, { message: 'Price must be a number' })
   @IsPositive({ message: 'Price must be positive' })
@@ -119,6 +126,8 @@ export class Property {
       location: this.location,
       city: this.city,
       region: this.region,
+      latitude: this.latitude,
+      longitude: this.longitude,
       price: this.price,
       currency: this.currency,
       rating: this.rating,
