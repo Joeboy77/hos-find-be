@@ -5,6 +5,7 @@ import { Category } from '../models/Category';
 import { Property } from '../models/Property';
 import { RoomType } from '../models/RoomType';
 import { Like } from '../models/Like';
+import { Notification } from '../models/Notification';
 import dotenv from 'dotenv';
 dotenv.config();
 export const AppDataSource = new DataSource({
@@ -16,7 +17,7 @@ export const AppDataSource = new DataSource({
   database: process.env.DB_NAME || 'hosfind',
   synchronize: process.env.NODE_ENV === 'development', 
   logging: process.env.NODE_ENV === 'development',
-  entities: [User, Admin, Category, Property, RoomType, Like],
+  entities: [User, Admin, Category, Property, RoomType, Like, Notification],
   migrations: ['src/migrations/*.ts'],
   subscribers: ['src/subscribers/*.ts'],
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,

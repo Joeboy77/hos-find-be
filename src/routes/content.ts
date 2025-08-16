@@ -13,6 +13,7 @@ router.get('/properties/type/:type', contentController.getPropertiesByType);
 router.get('/properties/search', contentController.searchProperties);
 
 // Room Type Routes (must come before /properties/:id to avoid conflicts)
+router.get('/room-types/:id', contentController.getRoomTypeById);
 router.get('/properties/:propertyId/room-types', contentController.getRoomTypesByProperty);
 
 // Property Routes

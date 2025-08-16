@@ -100,6 +100,16 @@ npm run admin:create
 npx ts-node src/scripts/create-admin.ts
 ```
 
+#### Seed Room Types
+```bash
+# Seed room types for existing properties
+yarn seed:room-types
+# or
+npm run seed:room-types
+# or directly
+npx ts-node src/scripts/seed-room-types.ts
+```
+
 #### Create Sample Data
 ```bash
 # Populate database with sample categories and properties
@@ -175,3 +185,50 @@ Error responses:
   "statusCode": 400
 }
 ``` 
+
+## Property Management
+
+### Adding Properties with Coordinates
+
+When creating or updating properties, you can now include precise coordinates for map display:
+
+**Required Fields:**
+- `name` - Property name
+- `description` - Property description
+- `mainImageUrl` - Main image URL
+- `location` - Property location/address
+- `city` - City name
+- `region` - Region/state
+- `price` - Price per night
+- `propertyType` - Type of property (hostel, hotel, homestay, apartment, guesthouse)
+- `categoryId` - Category UUID
+
+**Optional Fields:**
+- `latitude` - Latitude coordinate (-90 to 90)
+- `longitude` - Longitude coordinate (-180 to 180)
+- `currency` - Currency symbol (default: ₵)
+- `isFeatured` - Whether property is featured (default: false)
+- `displayOrder` - Display order (default: 0)
+
+**Example Request:**
+```json
+{
+  "name": "Sample Hostel",
+  "description": "A comfortable hostel in the city center",
+  "mainImageUrl": "https://example.com/image.jpg",
+  "location": "123 Main Street",
+  "city": "Accra",
+  "region": "Greater Accra",
+  "latitude": 5.5600,
+  "longitude": -0.2057,
+  "price": 150,
+  "propertyType": "hostel",
+  "categoryId": "uuid-here"
+}
+```
+
+**Getting Coordinates:**
+- Use Google Maps: Right-click on a location and copy the coordinates
+- Use GPS apps on your phone
+- Use online coordinate finders
+- Coordinates are optional - if not provided, the system will use default coordinates based on the city 

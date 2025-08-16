@@ -5,7 +5,11 @@ import { User } from '../models/User';
 import { Admin, AdminRole } from '../models/Admin';
 import { Property, PropertyType, PropertyStatus } from '../models/Property';
 import { Category } from '../models/Category';
+import { RoomType } from '../models/RoomType';
 import { AppError } from '../middleware/errorHandler';
+import { NotificationController } from './notificationController';
+import { PushNotificationService } from '../services/pushNotificationService';
+import { NotificationType } from '../models/Notification';
 interface AdminRequest extends Request {
   admin?: Admin;
 }
@@ -590,6 +594,8 @@ export class AdminController {
         location,
         city,
         region,
+        latitude,
+        longitude,
         price,
         currency = '₵',
         propertyType,
@@ -635,6 +641,8 @@ export class AdminController {
         location,
         city,
         region,
+        latitude,
+        longitude,
         price,
         currency,
         propertyType,
@@ -651,6 +659,36 @@ export class AdminController {
         where: { id: newProperty.id },
         relations: ['category']
       });
+
+      // Create notifications for all users about the new property
+      try {
+        await NotificationController.createNotificationForAllUsers(
+          'New Property Available!',
+          `${name} has been added to HosFind. Check it out now!`,
+          NotificationType.NEW_PROPERTY,
+          {
+            propertyId: newProperty.id,
+            propertyName: name,
+            propertyType: propertyType,
+            propertyImage: mainImageUrl,
+            city: city,
+            region: region
+          }
+        );
+
+        // Send push notifications to all users
+        await PushNotificationService.sendNewPropertyNotification(
+          name,
+          newProperty.id,
+          mainImageUrl
+        );
+
+        console.log('✅ Notifications created and push notifications sent for new property');
+      } catch (notificationError) {
+        console.error('⚠️ Error creating notifications:', notificationError);
+        // Don't fail the property creation if notifications fail
+      }
+
       res.status(201).json({
         success: true,
         message: 'Property created successfully',
@@ -703,7 +741,7 @@ export class AdminController {
       }
       const allowedFields = [
         'name', 'description', 'mainImageUrl', 'additionalImageUrls',
-        'location', 'city', 'region', 'price', 'currency', 'propertyType',
+        'location', 'city', 'region', 'latitude', 'longitude', 'price', 'currency', 'propertyType',
         'categoryId', 'isFeatured', 'displayOrder', 'status', 'isActive'
       ];
       allowedFields.forEach(field => {
@@ -774,6 +812,113 @@ export class AdminController {
     } catch (error) {
       console.error('Error bulk updating properties:', error);
       res.status(500).json({ success: false, message: 'Failed to bulk update properties' });
+    }
+  }
+
+  // Room Type Management Methods
+  static async createRoomType(req: AdminRequest, res: Response): Promise<void> {
+    try {
+      const roomTypeRepository = AppDataSource.getRepository(RoomType);
+      const propertyRepository = AppDataSource.getRepository(Property);
+      
+      const property = await propertyRepository.findOne({ where: { id: req.body.propertyId } });
+      if (!property) {
+        res.status(404).json({ success: false, message: 'Property not found' });
+        return;
+      }
+
+      const roomType = roomTypeRepository.create({
+        name: req.body.name,
+        description: req.body.description,
+        price: parseFloat(req.body.price),
+        currency: req.body.currency || '₵',
+        genderType: req.body.genderType || 'any',
+        capacity: parseInt(req.body.capacity) || 1,
+        roomTypeCategory: req.body.roomTypeCategory,
+        isAvailable: req.body.isAvailable !== false,
+        availableRooms: parseInt(req.body.availableRooms) || 0,
+        totalRooms: parseInt(req.body.totalRooms) || 1,
+        amenities: req.body.amenities || [],
+        imageUrl: req.body.imageUrl,
+        propertyId: req.body.propertyId,
+        displayOrder: parseInt(req.body.displayOrder) || 0,
+        isActive: true
+      });
+
+      await roomTypeRepository.save(roomType);
+      res.status(201).json({
+        success: true,
+        message: 'Room type created successfully',
+        data: roomType.toJSON()
+      });
+    } catch (error) {
+      console.error('Error creating room type:', error);
+      res.status(500).json({ success: false, message: 'Failed to create room type' });
+    }
+  }
+
+  static async updateRoomType(req: AdminRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const roomTypeRepository = AppDataSource.getRepository(RoomType);
+      const roomType = await roomTypeRepository.findOne({ where: { id } });
+      
+      if (!roomType) {
+        res.status(404).json({ success: false, message: 'Room type not found' });
+        return;
+      }
+
+      const updateData = req.body;
+      const allowedFields = [
+        'name', 'description', 'price', 'currency', 'genderType', 'capacity',
+        'roomTypeCategory', 'isAvailable', 'availableRooms', 'totalRooms',
+        'amenities', 'imageUrl', 'displayOrder', 'isActive'
+      ];
+
+      allowedFields.forEach(field => {
+        if (updateData[field] !== undefined) {
+          if (field === 'price') {
+            (roomType as any)[field] = parseFloat(updateData[field]);
+          } else if (field === 'capacity' || field === 'availableRooms' || field === 'totalRooms' || field === 'displayOrder') {
+            (roomType as any)[field] = parseInt(updateData[field]);
+          } else {
+            (roomType as any)[field] = updateData[field];
+          }
+        }
+      });
+
+      await roomTypeRepository.save(roomType);
+      res.json({
+        success: true,
+        message: 'Room type updated successfully',
+        data: roomType.toJSON()
+      });
+    } catch (error) {
+      console.error('Error updating room type:', error);
+      res.status(500).json({ success: false, message: 'Failed to update room type' });
+    }
+  }
+
+  static async deleteRoomType(req: AdminRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const roomTypeRepository = AppDataSource.getRepository(RoomType);
+      const roomType = await roomTypeRepository.findOne({ where: { id } });
+      
+      if (!roomType) {
+        res.status(404).json({ success: false, message: 'Room type not found' });
+        return;
+      }
+
+      roomType.isActive = false;
+      await roomTypeRepository.save(roomType);
+      res.json({
+        success: true,
+        message: 'Room type deleted successfully'
+      });
+    } catch (error) {
+      console.error('Error deleting room type:', error);
+      res.status(500).json({ success: false, message: 'Failed to delete room type' });
     }
   }
 } 
