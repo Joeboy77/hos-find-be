@@ -32,7 +32,13 @@ export const authenticateAdmin = async (
     }
     console.log('🔐 [ADMIN AUTH] Token found, verifying JWT...');
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
-    console.log('🔐 [ADMIN AUTH] JWT decoded successfully:', { adminId: decoded.adminId, email: decoded.email, role: decoded.role });
+    console.log('🔐 [ADMIN AUTH] JWT decoded successfully:', { 
+      adminId: decoded.adminId, 
+      email: decoded.email, 
+      role: decoded.role,
+      id: decoded.id,
+      type: decoded.type 
+    });
     
     // Check if this is an admin token (has adminId field)
     if (!decoded.adminId) {
