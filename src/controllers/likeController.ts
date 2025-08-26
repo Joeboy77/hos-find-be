@@ -5,13 +5,13 @@ import { Property } from '../models/Property';
 import { User } from '../models/User';
 import { AppError } from '../middleware/errorHandler';
 
-interface UserRequest extends Request {
+type UserRequest = Request & {
   user?: {
     id: string;
     email: string;
     phoneNumber: string;
   };
-}
+};
 
 export const likeController = {
   async likeProperty(req: UserRequest, res: Response, next: NextFunction) {

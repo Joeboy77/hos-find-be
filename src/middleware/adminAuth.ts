@@ -3,13 +3,13 @@ import jwt from 'jsonwebtoken';
 import { AppDataSource } from '../config/database';
 import { Admin, AdminRole } from '../models/Admin';
 
-interface AdminRequest extends Request {
+type AdminRequest = Request & {
   admin?: {
     id: string;
     email: string;
     role: AdminRole;
   };
-}
+};
 export const authenticateAdmin = async (
   req: AdminRequest,
   res: Response,

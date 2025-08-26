@@ -12,13 +12,13 @@ import { PushNotificationService } from '../services/pushNotificationService';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
-interface AdminRequest extends Request {
+type AdminRequest = Request & {
   admin?: {
     id: string;
     email: string;
     role: AdminRole;
   };
-}
+};
 
 export class AdminController {
   static async login(req: Request, res: Response, next: NextFunction) {

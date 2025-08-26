@@ -5,13 +5,13 @@ import { Category } from '../models/Category';
 import { User } from '../models/User';
 import { AppError } from '../middleware/errorHandler';
 
-interface UserRequest extends Request {
+type UserRequest = Request & {
   user?: {
     id: string;
     email: string;
     phoneNumber: string;
   };
-}
+};
 export class UserController {
   static async getCategories(req: Request, res: Response, next: NextFunction) {
     try {

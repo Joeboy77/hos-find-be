@@ -3,13 +3,13 @@ import { AppDataSource } from '../config/database';
 import { Notification, NotificationType } from '../models/Notification';
 import { User } from '../models/User';
 
-interface AuthRequest extends Request {
+type AuthRequest = Request & {
   user?: {
     id: string;
     email: string;
     phoneNumber: string;
   };
-}
+};
 
 export class NotificationController {
   static async getNotifications(req: AuthRequest, res: Response): Promise<void> {
