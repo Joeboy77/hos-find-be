@@ -53,11 +53,22 @@ export class AdminController {
         return;
       }
 
-      const token = jwt.sign(
+      // Generate access and refresh tokens
+      const accessToken = jwt.sign(
         { adminId: admin.id, email: admin.email, role: admin.role },
         process.env.JWT_SECRET || 'fallback-secret',
         { expiresIn: '24h' }
       );
+
+      const refreshToken = jwt.sign(
+        { adminId: admin.id, email: admin.email, role: admin.role },
+        process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret',
+        { expiresIn: '7d' }
+      );
+
+      // Save refresh token to admin
+      admin.refreshToken = refreshToken;
+      await adminRepository.save(admin);
 
       console.log('✅ [ADMIN LOGIN] Admin logged in successfully:', email);
       res.json({
@@ -71,7 +82,10 @@ export class AdminController {
             role: admin.role,
             isActive: admin.isActive
           },
-          token
+          tokens: {
+            accessToken,
+            refreshToken
+          }
         }
       });
     } catch (error) {
