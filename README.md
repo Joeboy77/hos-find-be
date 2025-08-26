@@ -232,3 +232,4 @@ When creating or updating properties, you can now include precise coordinates fo
 - Use GPS apps on your phone
 - Use online coordinate finders
 - Coordinates are optional - if not provided, the system will use default coordinates based on the city # Updated for Render deployment
+# Force Render deployment - Tue Aug 26 11:57:48 GMT 2025
