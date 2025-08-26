@@ -6,7 +6,11 @@ import { User } from '../models/User';
 import { AppError } from '../middleware/errorHandler';
 
 interface UserRequest extends Request {
-  user?: User;
+  user?: {
+    id: string;
+    email: string;
+    phoneNumber: string;
+  };
 }
 
 export const likeController = {
