@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { AppDataSource } from '../config/database';
 import { Notification, NotificationType } from '../models/Notification';
 import { User } from '../models/User';
+import { PushNotificationService } from '../services/pushNotificationService';
 
 type AuthRequest = Request & {
   user?: {
@@ -221,6 +222,18 @@ export class NotificationController {
       await notificationRepository.save(notifications);
 
       console.log(`Created ${notifications.length} notifications for all users`);
+
+      // Send push notifications to all users
+      await PushNotificationService.sendToAllUsers({
+        title,
+        body: message,
+        data: {
+          type,
+          ...data
+        }
+      });
+
+      console.log('Push notifications sent to all users');
     } catch (error) {
       console.error('Error creating notifications for all users:', error);
     }
@@ -246,6 +259,18 @@ export class NotificationController {
       await notificationRepository.save(notification);
 
       console.log(`Created notification for user ${userId}`);
+
+      // Send push notification to the specific user
+      await PushNotificationService.sendToUser(userId, {
+        title,
+        body: message,
+        data: {
+          type,
+          ...data
+        }
+      });
+
+      console.log(`Push notification sent to user ${userId}`);
     } catch (error) {
       console.error('Error creating notification for user:', error);
     }
