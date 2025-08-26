@@ -10,6 +10,7 @@ type AdminRequest = Request & {
     role: AdminRole;
   };
 };
+
 export const authenticateAdmin = async (
   req: AdminRequest,
   res: Response,
@@ -31,16 +32,19 @@ export const authenticateAdmin = async (
     }
     console.log('🔐 [ADMIN AUTH] Token found, verifying JWT...');
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
-    console.log('🔐 [ADMIN AUTH] JWT decoded successfully:', { id: decoded.id, email: decoded.email, type: decoded.type });
-    if (decoded.type !== 'admin') {
-      console.log('❌ [ADMIN AUTH] Token is not an admin token, type:', decoded.type);
+    console.log('🔐 [ADMIN AUTH] JWT decoded successfully:', { adminId: decoded.adminId, email: decoded.email, role: decoded.role });
+    
+    // Check if this is an admin token (has adminId field)
+    if (!decoded.adminId) {
+      console.log('❌ [ADMIN AUTH] Token is not an admin token, missing adminId');
       res.status(401).json({ message: 'Invalid token type' });
       return;
     }
+    
     console.log('🔐 [ADMIN AUTH] Looking up admin in database...');
     const adminRepository = AppDataSource.getRepository(Admin);
     const admin = await adminRepository.findOne({
-      where: { id: decoded.id, isActive: true }
+      where: { id: decoded.adminId, isActive: true }
     });
     if (!admin) {
       console.log('❌ [ADMIN AUTH] Admin not found or inactive');
@@ -55,6 +59,7 @@ export const authenticateAdmin = async (
     res.status(401).json({ message: 'Invalid token' });
   }
 };
+
 export const requireAdminRole = () => {
   return (req: AdminRequest, res: Response, next: NextFunction): void => {
     console.log('🔐 [ADMIN ROLE] Checking admin role for:', req.method, req.path);
