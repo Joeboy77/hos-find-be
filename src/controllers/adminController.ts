@@ -791,13 +791,6 @@ export class AdminController {
           }
         );
 
-        // Send push notifications to all users
-        await PushNotificationService.sendNewPropertyNotification(
-          name,
-          newProperty.id,
-          mainImageUrl
-        );
-
         console.log('✅ Notifications created and push notifications sent for new property');
       } catch (notificationError) {
         console.error('⚠️ Error creating notifications:', notificationError);
