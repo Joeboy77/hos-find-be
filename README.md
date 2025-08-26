@@ -231,4 +231,4 @@ When creating or updating properties, you can now include precise coordinates fo
 - Use Google Maps: Right-click on a location and copy the coordinates
 - Use GPS apps on your phone
 - Use online coordinate finders
-- Coordinates are optional - if not provided, the system will use default coordinates based on the city 
+- Coordinates are optional - if not provided, the system will use default coordinates based on the city # Updated for Render deployment
