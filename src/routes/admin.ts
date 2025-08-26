@@ -250,5 +250,9 @@ router.put('/categories/:id',
 router.delete('/categories/:id', logRequest, authenticateAdmin, requireAdminRole(), AdminController.deleteCategory);
 router.patch('/categories/:id/status', logRequest, authenticateAdmin, requireAdminRole(), AdminController.updateCategoryStatus);
 router.get('/categories-stats', logRequest, authenticateAdmin, requireAdminRole(), AdminController.getCategoryStats);
+
+// Test push notification route
+router.post('/test-push-notification', logRequest, authenticateAdmin, requireAdminRole(), AdminController.testPushNotification);
+
 console.log('🔧 [ROUTER SETUP] Admin routes setup complete - Login route is PUBLIC, all others require authentication');
 export default router; 

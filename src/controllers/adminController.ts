@@ -1650,4 +1650,29 @@ export class AdminController {
       res.status(500).json({ success: false, message: 'Failed to update app settings' });
     }
   }
+
+  static async testPushNotification(req: AdminRequest, res: Response): Promise<void> {
+    try {
+      console.log('🧪 [TEST] Testing push notification...');
+      
+      // Test sending push notification to all users
+      await NotificationController.createNotificationForAllUsers(
+        'Test Push Notification',
+        'This is a test push notification from the admin panel!',
+        'test' as any,
+        {
+          type: 'test',
+          timestamp: new Date().toISOString()
+        }
+      );
+
+      res.json({
+        success: true,
+        message: 'Test push notification sent successfully'
+      });
+    } catch (error) {
+      console.error('Error sending test push notification:', error);
+      res.status(500).json({ success: false, message: 'Failed to send test push notification' });
+    }
+  }
 } 
