@@ -8,18 +8,41 @@ import { Like } from '../models/Like';
 import { Notification } from '../models/Notification';
 import dotenv from 'dotenv';
 dotenv.config();
-export const AppDataSource = new DataSource({
-  type: 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432'),
-  username: process.env.DB_USERNAME || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
-  database: process.env.DB_NAME || 'hosfind',
-  synchronize: process.env.NODE_ENV === 'development', 
-  logging: process.env.NODE_ENV === 'development',
-  entities: [User, Admin, Category, Property, RoomType, Like, Notification],
-  migrations: ['src/migrations/*.ts'],
-  subscribers: ['src/subscribers/*.ts'],
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-});
+
+// Database configuration based on environment
+const isProduction = process.env.NODE_ENV === 'production';
+
+let dbConfig: any;
+
+if (isProduction) {
+  // Production: Use DATABASE_URL
+  dbConfig = {
+    type: 'postgres',
+    url: process.env.DATABASE_URL,
+    synchronize: false, // Never auto-sync in production
+    logging: false,
+    ssl: { rejectUnauthorized: false },
+    entities: [User, Admin, Category, Property, RoomType, Like, Notification],
+    migrations: ['src/migrations/*.ts'],
+    subscribers: ['src/subscribers/*.ts'],
+  };
+} else {
+  // Development: Use individual environment variables
+  dbConfig = {
+    type: 'postgres',
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT || '5432'),
+    username: process.env.DB_USERNAME || 'postgres',
+    password: process.env.DB_PASSWORD || 'postgres',
+    database: process.env.DB_NAME || 'hosfind',
+    synchronize: true, // Auto-sync in development
+    logging: true,
+    ssl: false,
+    entities: [User, Admin, Category, Property, RoomType, Like, Notification],
+    migrations: ['src/migrations/*.ts'],
+    subscribers: ['src/subscribers/*.ts'],
+  };
+}
+
+export const AppDataSource = new DataSource(dbConfig);
 export default AppDataSource; 

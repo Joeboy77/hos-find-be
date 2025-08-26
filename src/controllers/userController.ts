@@ -271,20 +271,38 @@ export class UserController {
   }
   static async getProfile(req: UserRequest, res: Response, next: NextFunction) {
     try {
+      console.log('🔍 [USER PROFILE] Request received');
+      console.log('🔍 [USER PROFILE] req.user:', req.user);
+      console.log('🔍 [USER PROFILE] req.headers:', req.headers);
+      
       if (!req.user) {
+        console.log('❌ [USER PROFILE] No user in request');
         const error = new Error('User not authenticated') as AppError;
         error.statusCode = 401;
         return next(error);
       }
+
+      console.log('🔍 [USER PROFILE] User ID from token:', req.user.id);
+      
       const userRepository = AppDataSource.getRepository(User);
       const user = await userRepository.findOne({
         where: { id: req.user.id }
       });
+      
+      console.log('🔍 [USER PROFILE] User found in database:', user ? 'YES' : 'NO');
+      
       if (!user) {
-        const error = new Error('User not found') as AppError;
-        error.statusCode = 404;
+        console.log('❌ [USER PROFILE] User not found in database with ID:', req.user.id);
+        console.log('💡 [USER PROFILE] This usually happens when the user was deleted or database was reset');
+        console.log('💡 [USER PROFILE] The mobile app needs to clear its stored token and re-login');
+        
+        const error = new Error('User account not found. Please log in again.') as AppError;
+        error.statusCode = 401; // Changed from 404 to 401 to indicate auth issue
         return next(error);
       }
+
+      console.log('✅ [USER PROFILE] User profile retrieved successfully');
+      
       res.json({
         success: true,
         data: {
@@ -292,6 +310,7 @@ export class UserController {
         }
       });
     } catch (error) {
+      console.error('❌ [USER PROFILE] Error:', error);
       next(error);
     }
   }

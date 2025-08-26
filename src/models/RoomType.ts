@@ -70,6 +70,9 @@ export class RoomType {
   @Column({ type: 'varchar', length: 255, nullable: true })
   imageUrl: string;
 
+  @Column({ type: 'simple-array', nullable: true })
+  additionalImageUrls: string[];
+
   @Column({ type: 'uuid' })
   propertyId: string;
 
@@ -104,6 +107,7 @@ export class RoomType {
       totalRooms: this.totalRooms,
       amenities: this.amenities,
       imageUrl: this.imageUrl,
+      additionalImageUrls: this.additionalImageUrls,
       propertyId: this.propertyId,
       displayOrder: this.displayOrder,
       isActive: this.isActive,

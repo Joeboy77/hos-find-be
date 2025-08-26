@@ -25,9 +25,62 @@ router.post('/test', logRequest, (req: Request, res: Response) => {
 });
 router.get('/dashboard', logRequest, authenticateAdmin, AdminController.getDashboardStats);
 router.get('/users', logRequest, authenticateAdmin, requireAdminRole(), AdminController.getAllUsers);
+router.get('/users/stats', logRequest, authenticateAdmin, requireAdminRole(), AdminController.getUserStats);
 router.get('/users/:userId', logRequest, authenticateAdmin, requireAdminRole(), AdminController.getUserDetails);
 router.patch('/users/:userId/status', logRequest, authenticateAdmin, requireAdminRole(), AdminController.updateUserStatus);
-router.post('/admins', 
+router.delete('/users/:userId', logRequest, authenticateAdmin, requireAdminRole(), AdminController.deleteUser);
+
+// Notification routes
+router.get('/notifications', logRequest, authenticateAdmin, requireAdminRole(), AdminController.getAllNotifications);
+router.get('/notifications-stats', logRequest, authenticateAdmin, requireAdminRole(), AdminController.getNotificationStats);
+router.post('/notifications', 
+  logRequest,
+  authenticateAdmin,
+  requireAdminRole(),
+  [
+    body('title').trim().isLength({ min: 3, max: 200 }).withMessage('Title must be between 3 and 200 characters'),
+    body('message').trim().isLength({ min: 10 }).withMessage('Message must be at least 10 characters'),
+    body('type').optional().isIn(['new_property', 'property_update', 'system', 'promotion']).withMessage('Invalid notification type'),
+    body('targetUsers').isIn(['all', 'verified']).withMessage('Target users must be either "all" or "verified"')
+  ],
+  validateRequest,
+  AdminController.createNotification
+);
+router.delete('/notifications/:id', logRequest, authenticateAdmin, requireAdminRole(), AdminController.deleteNotification);
+router.patch('/notifications/:id/read', logRequest, authenticateAdmin, requireAdminRole(), AdminController.markNotificationAsRead);
+
+// Settings routes
+router.get('/profile', logRequest, authenticateAdmin, requireAdminRole(), AdminController.getAdminProfile);
+router.put('/profile', 
+  logRequest,
+  authenticateAdmin,
+  requireAdminRole(),
+  [
+    body('fullName').optional().trim().isLength({ min: 2, max: 100 }).withMessage('Full name must be between 2 and 100 characters'),
+    body('email').optional().isEmail().normalizeEmail().withMessage('Invalid email address'),
+    body('currentPassword').optional().isLength({ min: 6 }).withMessage('Current password must be at least 6 characters'),
+    body('newPassword').optional().isLength({ min: 6 }).withMessage('New password must be at least 6 characters')
+  ],
+  validateRequest,
+  AdminController.updateAdminProfile
+);
+
+router.get('/settings', logRequest, authenticateAdmin, requireAdminRole(), AdminController.getAppSettings);
+router.put('/settings',
+  logRequest,
+  authenticateAdmin,
+  requireAdminRole(),
+  [
+    body('maintenanceMode').optional().isBoolean().withMessage('Maintenance mode must be a boolean'),
+    body('allowRegistrations').optional().isBoolean().withMessage('Allow registrations must be a boolean'),
+    body('requireEmailVerification').optional().isBoolean().withMessage('Require email verification must be a boolean'),
+    body('requirePhoneVerification').optional().isBoolean().withMessage('Require phone verification must be a boolean')
+  ],
+  validateRequest,
+  AdminController.updateAppSettings
+);
+
+router.post('/admins',
   logRequest,
   authenticateAdmin,
   requireAdminRole(),
@@ -97,6 +150,7 @@ router.delete('/properties/:id', logRequest, authenticateAdmin, requireAdminRole
 router.patch('/properties/:id/status', logRequest, authenticateAdmin, requireAdminRole(), AdminController.updatePropertyStatus);
 router.patch('/properties/:id/rating', logRequest, authenticateAdmin, requireAdminRole(), AdminController.updatePropertyRating);
 // Room Type Management Routes
+router.get('/room-types', logRequest, authenticateAdmin, requireAdminRole(), AdminController.getAllRoomTypes);
 router.post('/room-types', 
   logRequest,
   authenticateAdmin,
@@ -146,6 +200,7 @@ router.put('/room-types/:id',
 );
 
 router.delete('/room-types/:id', logRequest, authenticateAdmin, requireAdminRole(), AdminController.deleteRoomType);
+router.get('/room-types/:id', logRequest, authenticateAdmin, requireAdminRole(), AdminController.getRoomTypeDetails);
 
 router.patch('/properties/bulk-status', 
   logRequest,

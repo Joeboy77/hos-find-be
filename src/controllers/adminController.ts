@@ -1,94 +1,77 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
 import { AppDataSource } from '../config/database';
-import { User } from '../models/User';
 import { Admin, AdminRole } from '../models/Admin';
-import { Property, PropertyType, PropertyStatus } from '../models/Property';
+import { Property, PropertyStatus } from '../models/Property';
 import { Category } from '../models/Category';
 import { RoomType } from '../models/RoomType';
-import { AppError } from '../middleware/errorHandler';
+import { User } from '../models/User';
+import { Like } from '../models/Like';
+import { Notification, NotificationType } from '../models/Notification';
 import { NotificationController } from './notificationController';
 import { PushNotificationService } from '../services/pushNotificationService';
-import { NotificationType } from '../models/Notification';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+
 interface AdminRequest extends Request {
-  admin?: Admin;
+  admin?: {
+    id: string;
+    email: string;
+    role: AdminRole;
+  };
 }
+
 export class AdminController {
   static async login(req: Request, res: Response, next: NextFunction) {
     console.log('🔑 [ADMIN LOGIN] Starting admin login process');
-    console.log('🔑 [ADMIN LOGIN] Request body:', req.body);
-    console.log('🔑 [ADMIN LOGIN] Request headers:', req.headers);
     try {
       const { email, password } = req.body;
-      console.log('🔑 [ADMIN LOGIN] Extracted email:', email);
-      console.log('🔑 [ADMIN LOGIN] Password provided:', password ? 'YES' : 'NO');
+
       if (!email || !password) {
-        console.log('❌ [ADMIN LOGIN] Missing email or password');
-        const error = new Error('Email and password are required') as AppError;
-        error.statusCode = 400;
-        return next(error);
+        res.status(400).json({ success: false, message: 'Email and password are required' });
+        return;
       }
-      console.log('🔑 [ADMIN LOGIN] Looking up admin in database...');
-      console.log('🔑 [ADMIN LOGIN] Database connection status:', AppDataSource.isInitialized ? 'CONNECTED' : 'NOT CONNECTED');
+
       const adminRepository = AppDataSource.getRepository(Admin);
-      const admin = await adminRepository.findOne({ where: { email } });
-      console.log('🔑 [ADMIN LOGIN] Admin lookup result:', admin ? `Found admin ID: ${admin.id}` : 'Admin not found');
-      console.log('🔑 [ADMIN LOGIN] Admin details if found:', admin ? {
-        id: admin.id,
-        email: admin.email,
-        isActive: admin.isActive,
-        hasPassword: !!admin.password,
-        passwordLength: admin.password ? admin.password.length : 0
-      } : 'N/A');
-      if (!admin || !admin.isActive) {
-        console.log('❌ [ADMIN LOGIN] Admin not found or inactive');
-        const error = new Error('Invalid credentials or admin account inactive') as AppError;
-        error.statusCode = 401;
-        return next(error);
+      const admin = await adminRepository.findOne({ where: { email: email.toLowerCase() } });
+
+      if (!admin) {
+        console.log('❌ [ADMIN LOGIN] Admin not found:', email);
+        res.status(401).json({ success: false, message: 'Invalid credentials' });
+        return;
       }
-      console.log('🔑 [ADMIN LOGIN] Validating password...');
-      const isValidPassword = await admin.validatePassword(password);
-      console.log('🔑 [ADMIN LOGIN] Password validation result:', isValidPassword);
-      if (!isValidPassword) {
-        console.log('❌ [ADMIN LOGIN] Invalid password');
-        const error = new Error('Invalid credentials') as AppError;
-        error.statusCode = 401;
-        return next(error);
+
+      if (!admin.isActive) {
+        console.log('❌ [ADMIN LOGIN] Admin account is inactive:', email);
+        res.status(401).json({ success: false, message: 'Account is inactive' });
+        return;
       }
-      console.log('🔑 [ADMIN LOGIN] Password valid, generating tokens...');
-      const accessToken = jwt.sign(
-        {
-          id: admin.id,
-          email: admin.email,
-          role: admin.role,
-          type: 'admin'
-        },
-        process.env.JWT_SECRET!,
-        { expiresIn: '90d' }
+
+      const isPasswordValid = await bcrypt.compare(password, admin.password);
+      if (!isPasswordValid) {
+        console.log('❌ [ADMIN LOGIN] Invalid password for admin:', email);
+        res.status(401).json({ success: false, message: 'Invalid credentials' });
+        return;
+      }
+
+      const token = jwt.sign(
+        { adminId: admin.id, email: admin.email, role: admin.role },
+        process.env.JWT_SECRET || 'fallback-secret',
+        { expiresIn: '24h' }
       );
-      const refreshToken = jwt.sign(
-        {
-          id: admin.id,
-          type: 'admin_refresh'
-        },
-        process.env.JWT_REFRESH_SECRET!,
-        { expiresIn: '180d' }
-      );
-      console.log('🔑 [ADMIN LOGIN] Tokens generated, updating admin record...');
-      await adminRepository.update(admin.id, {
-        refreshToken,
-        lastLoginAt: new Date()
-      });
-      console.log('✅ [ADMIN LOGIN] Admin login successful, sending response');
+
+      console.log('✅ [ADMIN LOGIN] Admin logged in successfully:', email);
       res.json({
         success: true,
-        message: 'Admin login successful',
+        message: 'Login successful',
         data: {
-          admin: admin.toPublicJSON(),
-          tokens: {
-            accessToken,
-            refreshToken
-          }
+          admin: {
+            id: admin.id,
+            email: admin.email,
+            fullName: admin.fullName,
+            role: admin.role,
+            isActive: admin.isActive
+          },
+          token
         }
       });
     } catch (error) {
@@ -96,12 +79,17 @@ export class AdminController {
       next(error);
     }
   }
-  static async getDashboardStats(req: AdminRequest, res: Response) {
+
+  static async getDashboardStats(req: AdminRequest, res: Response): Promise<void> {
     try {
       const userRepository = AppDataSource.getRepository(User);
       const adminRepository = AppDataSource.getRepository(Admin);
       const propertyRepository = AppDataSource.getRepository(Property);
       const categoryRepository = AppDataSource.getRepository(Category);
+      const likeRepository = AppDataSource.getRepository(Like);
+      const notificationRepository = AppDataSource.getRepository(Notification);
+
+      // Basic counts
       const totalUsers = await userRepository.count();
       const totalAdmins = await adminRepository.count();
       const activeUsers = await userRepository.count({ where: { isActive: true } });
@@ -109,80 +97,163 @@ export class AdminController {
       const activeProperties = await propertyRepository.count({ where: { isActive: true } });
       const featuredProperties = await propertyRepository.count({ where: { isFeatured: true, isActive: true } });
       const totalCategories = await categoryRepository.count();
+      const totalLikes = await likeRepository.count();
+      const totalNotifications = await notificationRepository.count();
+      const unreadNotifications = await notificationRepository.count({ where: { isRead: false } as any });
+
+      // Recent activity (last 7 days)
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
+      const recentUsers = await userRepository
+        .createQueryBuilder('user')
+        .where('user.createdAt >= :startDate', { startDate: sevenDaysAgo })
+        .getCount();
+      
+      const recentProperties = await propertyRepository
+        .createQueryBuilder('property')
+        .where('property.createdAt >= :startDate', { startDate: sevenDaysAgo })
+        .getCount();
+
+      // Property statistics by category
+      const propertiesByCategory = await propertyRepository
+        .createQueryBuilder('property')
+        .leftJoin('property.category', 'category')
+        .select('category.name', 'categoryName')
+        .addSelect('COUNT(property.id)', 'propertyCount')
+        .where('property.isActive = :isActive', { isActive: true })
+        .groupBy('category.name')
+        .orderBy('COUNT(property.id)', 'DESC')
+        .limit(5)
+        .getRawMany();
+
+      // Top properties by likes
+      const topPropertiesByLikes = await propertyRepository
+        .createQueryBuilder('property')
+        .leftJoin('property.likes', 'like')
+        .select('property.name', 'propertyName')
+        .addSelect('COUNT(like.id)', 'likeCount')
+        .where('property.isActive = :isActive', { isActive: true })
+        .groupBy('property.id, property.name')
+        .orderBy('COUNT(like.id)', 'DESC')
+        .limit(5)
+        .getRawMany();
+
+      // Daily user registrations (last 7 days)
+      const dailyUserRegistrations = await userRepository
+        .createQueryBuilder('user')
+        .select('DATE(user.createdAt)', 'date')
+        .addSelect('COUNT(user.id)', 'userCount')
+        .where('user.createdAt >= :startDate', { startDate: sevenDaysAgo })
+        .groupBy('DATE(user.createdAt)')
+        .orderBy('date', 'ASC')
+        .getRawMany();
+
       res.json({
         success: true,
         data: {
-          totalUsers,
-          totalAdmins,
-          activeUsers,
-          totalProperties,
-          activeProperties,
-          featuredProperties,
-          totalCategories,
-          systemStatus: 'healthy'
+          summary: {
+            totalUsers,
+            totalAdmins,
+            activeUsers,
+            totalProperties,
+            activeProperties,
+            featuredProperties,
+            totalCategories,
+            totalLikes,
+            totalNotifications,
+            unreadNotifications
+          },
+          recentActivity: {
+            recentUsers,
+            recentProperties
+          },
+          analytics: {
+            propertiesByCategory,
+            topPropertiesByLikes,
+            dailyUserRegistrations
+          }
         }
       });
     } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
       res.status(500).json({ success: false, message: 'Failed to fetch dashboard stats' });
     }
   }
-  static async getAllUsers(req: AdminRequest, res: Response) {
+
+  static async getAllUsers(req: AdminRequest, res: Response): Promise<void> {
     try {
-      const { page = 1, limit = 20, search = '' } = req.query;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const search = req.query.search as string || '';
+      const offset = (page - 1) * limit;
+
       const userRepository = AppDataSource.getRepository(User);
       const queryBuilder = userRepository.createQueryBuilder('user');
+
       if (search) {
         queryBuilder.where(
           'user.fullName ILIKE :search OR user.email ILIKE :search OR user.phoneNumber ILIKE :search',
           { search: `%${search}%` }
         );
       }
+
       const [users, total] = await queryBuilder
-        .skip((Number(page) - 1) * Number(limit))
-        .take(Number(limit))
         .orderBy('user.createdAt', 'DESC')
+        .skip(offset)
+        .take(limit)
         .getManyAndCount();
+
       res.json({
         success: true,
         data: {
           users: users.map(user => user.toPublicJSON()),
           pagination: {
-            page: Number(page),
-            limit: Number(limit),
+            page,
+            limit,
             total,
-            pages: Math.ceil(total / Number(limit))
+            pages: Math.ceil(total / limit)
           }
         }
       });
     } catch (error) {
+      console.error('Error fetching users:', error);
       res.status(500).json({ success: false, message: 'Failed to fetch users' });
     }
   }
+
   static async updateUserStatus(req: AdminRequest, res: Response): Promise<void> {
     try {
       const { userId } = req.params;
       const { isActive } = req.body;
-      if (!userId) {
-        res.status(400).json({ success: false, message: 'User ID is required' });
+
+      if (typeof isActive !== 'boolean') {
+        res.status(400).json({ success: false, message: 'isActive must be a boolean' });
         return;
       }
+
       const userRepository = AppDataSource.getRepository(User);
       const user = await userRepository.findOne({ where: { id: userId } });
+
       if (!user) {
         res.status(404).json({ success: false, message: 'User not found' });
         return;
       }
+
       user.isActive = isActive;
       await userRepository.save(user);
+
       res.json({
         success: true,
         message: `User ${isActive ? 'activated' : 'deactivated'} successfully`,
         data: user.toPublicJSON()
       });
     } catch (error) {
+      console.error('Error updating user status:', error);
       res.status(500).json({ success: false, message: 'Failed to update user status' });
     }
   }
+
   static async getUserDetails(req: AdminRequest, res: Response): Promise<void> {
     try {
       const { userId } = req.params;
@@ -190,98 +261,412 @@ export class AdminController {
         res.status(400).json({ success: false, message: 'User ID is required' });
         return;
       }
+
       const userRepository = AppDataSource.getRepository(User);
       const user = await userRepository.findOne({ where: { id: userId } });
+
       if (!user) {
         res.status(404).json({ success: false, message: 'User not found' });
         return;
       }
+
       res.json({
         success: true,
-        data: user.toPublicJSON()
+        data: {
+          user: user.toPublicJSON()
+        }
       });
     } catch (error) {
+      console.error('Error fetching user details:', error);
       res.status(500).json({ success: false, message: 'Failed to fetch user details' });
     }
   }
+
+  static async deleteUser(req: AdminRequest, res: Response): Promise<void> {
+    try {
+      const { userId } = req.params;
+      if (!userId) {
+        res.status(400).json({ success: false, message: 'User ID is required' });
+        return;
+      }
+
+      const userRepository = AppDataSource.getRepository(User);
+      const user = await userRepository.findOne({ where: { id: userId } });
+
+      if (!user) {
+        res.status(404).json({ success: false, message: 'User not found' });
+        return;
+      }
+
+      await userRepository.remove(user);
+
+      res.json({
+        success: true,
+        message: 'User deleted successfully'
+      });
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      res.status(500).json({ success: false, message: 'Failed to delete user' });
+    }
+  }
+
+  static async getUserStats(req: AdminRequest, res: Response): Promise<void> {
+    try {
+      const userRepository = AppDataSource.getRepository(User);
+      
+      // Get total users
+      const totalUsers = await userRepository.count();
+      
+      // Get active users
+      const activeUsers = await userRepository.count({ where: { isActive: true } });
+      
+
+      
+      // Get new users this week
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      const newUsersThisWeek = await userRepository.count({
+        where: { createdAt: { $gte: oneWeekAgo } as any }
+      });
+      
+      // Get new users this month
+      const oneMonthAgo = new Date();
+      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+      const newUsersThisMonth = await userRepository.count({
+        where: { createdAt: { $gte: oneMonthAgo } as any }
+      });
+
+      res.json({
+        success: true,
+        data: {
+          totalUsers,
+          activeUsers,
+          newUsersThisWeek,
+          newUsersThisMonth
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching user stats:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch user stats' });
+    }
+  }
+
+  // Notification Management Methods
+  static async getAllNotifications(req: AdminRequest, res: Response): Promise<void> {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const type = req.query.type as string;
+      const isRead = req.query.isRead as string;
+      const offset = (page - 1) * limit;
+
+      const notificationRepository = AppDataSource.getRepository(Notification);
+      const queryBuilder = notificationRepository.createQueryBuilder('notification')
+        .leftJoinAndSelect('notification.user', 'user')
+        .orderBy('notification.createdAt', 'DESC');
+
+      // Apply filters
+      if (type) {
+        queryBuilder.andWhere('notification.type = :type', { type });
+      }
+      if (isRead !== undefined) {
+        queryBuilder.andWhere('notification.isRead = :isRead', { isRead: isRead === 'true' });
+      }
+
+      const [notifications, total] = await queryBuilder
+        .skip(offset)
+        .take(limit)
+        .getManyAndCount();
+
+      res.json({
+        success: true,
+        data: {
+          notifications: notifications.map(n => ({
+            ...n.toJSON(),
+            user: n.user ? {
+              id: n.user.id,
+              fullName: n.user.fullName,
+              email: n.user.email
+            } : null
+          })),
+          pagination: {
+            page,
+            limit,
+            total,
+            pages: Math.ceil(total / limit)
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch notifications' });
+    }
+  }
+
+  static async getNotificationStats(req: AdminRequest, res: Response): Promise<void> {
+    try {
+      const notificationRepository = AppDataSource.getRepository(Notification);
+      
+      // Get total notifications
+      const totalNotifications = await notificationRepository.count();
+      
+      // Get unread notifications
+      const unreadNotifications = await notificationRepository.count({ 
+        where: { isRead: false } 
+      });
+      
+      // Get notifications by type
+      const notificationsByType = await notificationRepository
+        .createQueryBuilder('notification')
+        .select('notification.type', 'type')
+        .addSelect('COUNT(*)', 'count')
+        .groupBy('notification.type')
+        .getRawMany();
+
+      // Get recent notifications (last 24 hours)
+      const oneDayAgo = new Date();
+      oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+      const recentNotifications = await notificationRepository
+        .createQueryBuilder('notification')
+        .where('notification.createdAt >= :oneDayAgo', { oneDayAgo })
+        .getCount();
+
+      res.json({
+        success: true,
+        data: {
+          totalNotifications,
+          unreadNotifications,
+          notificationsByType: notificationsByType.map(item => ({
+            type: item.type,
+            count: item.count.toString()
+          })),
+          recentNotifications
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching notification stats:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch notification stats' });
+    }
+  }
+
+  static async createNotification(req: AdminRequest, res: Response): Promise<void> {
+    try {
+      const { title, message, type, targetUsers } = req.body;
+
+      if (!title || !message) {
+        res.status(400).json({ success: false, message: 'Title and message are required' });
+        return;
+      }
+
+      const notificationRepository = AppDataSource.getRepository(Notification);
+      const userRepository = AppDataSource.getRepository(User);
+
+      let users: User[] = [];
+      
+      if (targetUsers === 'all') {
+        // Send to all active users
+        users = await userRepository.find({ where: { isActive: true } });
+      } else if (targetUsers === 'verified') {
+        // Send to verified users only
+        users = await userRepository.find({ 
+          where: { isActive: true, isEmailVerified: true, isPhoneVerified: true } 
+        });
+      } else if (Array.isArray(targetUsers)) {
+        // Send to specific user IDs
+        users = await userRepository.findByIds(targetUsers);
+      }
+
+      if (users.length === 0) {
+        res.status(400).json({ success: false, message: 'No target users found' });
+        return;
+      }
+
+      // Create notifications for each user
+      const notifications = users.map(user => {
+        const notification = new Notification();
+        notification.title = title;
+        notification.message = message;
+        notification.type = type || NotificationType.SYSTEM;
+        notification.userId = user.id;
+        notification.data = { adminCreated: true };
+        return notification;
+      });
+
+      await notificationRepository.save(notifications);
+
+      // Send push notifications
+      try {
+        await PushNotificationService.sendSystemNotification(title, message);
+      } catch (pushError) {
+        console.error('Error sending push notifications:', pushError);
+      }
+
+      res.status(201).json({
+        success: true,
+        message: `Notification sent to ${users.length} users`,
+        data: {
+          notificationsCreated: notifications.length,
+          targetUsers: users.length
+        }
+      });
+    } catch (error) {
+      console.error('Error creating notification:', error);
+      res.status(500).json({ success: false, message: 'Failed to create notification' });
+    }
+  }
+
+  static async deleteNotification(req: AdminRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      const notificationRepository = AppDataSource.getRepository(Notification);
+      const notification = await notificationRepository.findOne({ where: { id } });
+
+      if (!notification) {
+        res.status(404).json({ success: false, message: 'Notification not found' });
+        return;
+      }
+
+      await notificationRepository.remove(notification);
+
+      res.json({
+        success: true,
+        message: 'Notification deleted successfully'
+      });
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+      res.status(500).json({ success: false, message: 'Failed to delete notification' });
+    }
+  }
+
+  static async markNotificationAsRead(req: AdminRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      const notificationRepository = AppDataSource.getRepository(Notification);
+      const notification = await notificationRepository.findOne({ where: { id } });
+
+      if (!notification) {
+        res.status(404).json({ success: false, message: 'Notification not found' });
+        return;
+      }
+
+      notification.isRead = true;
+      await notificationRepository.save(notification);
+
+      res.json({
+        success: true,
+        message: 'Notification marked as read'
+      });
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      res.status(500).json({ success: false, message: 'Failed to mark notification as read' });
+    }
+  }
+
   static async createAdmin(req: AdminRequest, res: Response): Promise<void> {
     try {
-      const { email, password, fullName, role } = req.body;
+      const { email, password, fullName, role = AdminRole.ADMIN } = req.body;
+
+      if (!email || !password || !fullName) {
+        res.status(400).json({ success: false, message: 'Email, password, and fullName are required' });
+        return;
+      }
+
+      if (req.admin?.role !== AdminRole.ADMIN) {
+        res.status(403).json({ success: false, message: 'Only admins can create new admin accounts' });
+        return;
+      }
+
       const adminRepository = AppDataSource.getRepository(Admin);
-      const existingAdmin = await adminRepository.findOne({ where: { email } });
+      const existingAdmin = await adminRepository.findOne({ where: { email: email.toLowerCase() } });
+
       if (existingAdmin) {
         res.status(400).json({ success: false, message: 'Admin with this email already exists' });
         return;
       }
-      const newAdmin = adminRepository.create({
-        email,
-        password,
+
+      const hashedPassword = await bcrypt.hash(password, 12);
+      const admin = adminRepository.create({
+        email: email.toLowerCase(),
+        password: hashedPassword,
         fullName,
-        role: AdminRole.ADMIN
+        role,
+        isActive: true
       });
-      await adminRepository.save(newAdmin);
+
+      await adminRepository.save(admin);
+
       res.status(201).json({
         success: true,
         message: 'Admin created successfully',
-        data: newAdmin.toPublicJSON()
+        data: {
+          id: admin.id,
+          email: admin.email,
+          fullName: admin.fullName,
+          role: admin.role,
+          isActive: admin.isActive
+        }
       });
     } catch (error) {
+      console.error('Error creating admin:', error);
       res.status(500).json({ success: false, message: 'Failed to create admin' });
     }
   }
+
   static async getAllProperties(req: AdminRequest, res: Response): Promise<void> {
     try {
-      const { 
-        page = 1, 
-        limit = 20, 
-        search = '', 
-        categoryId = '', 
-        propertyType = '', 
-        status = '',
-        isFeatured = ''
-      } = req.query;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const search = req.query.search as string || '';
+      const categoryId = req.query.categoryId as string || '';
+      const status = req.query.status as string || '';
+      const offset = (page - 1) * limit;
+
       const propertyRepository = AppDataSource.getRepository(Property);
-      const queryBuilder = propertyRepository.createQueryBuilder('property')
+      const queryBuilder = propertyRepository
+        .createQueryBuilder('property')
         .leftJoinAndSelect('property.category', 'category');
+
       if (search) {
         queryBuilder.where(
           'property.name ILIKE :search OR property.description ILIKE :search OR property.location ILIKE :search',
           { search: `%${search}%` }
         );
       }
+
       if (categoryId) {
         queryBuilder.andWhere('property.categoryId = :categoryId', { categoryId });
       }
-      if (propertyType) {
-        queryBuilder.andWhere('property.propertyType = :propertyType', { propertyType });
-      }
+
       if (status) {
         queryBuilder.andWhere('property.status = :status', { status });
       }
-      if (isFeatured !== '') {
-        queryBuilder.andWhere('property.isFeatured = :isFeatured', { isFeatured: isFeatured === 'true' });
-      }
+
       const [properties, total] = await queryBuilder
-        .skip((Number(page) - 1) * Number(limit))
-        .take(Number(limit))
         .orderBy('property.createdAt', 'DESC')
+        .skip(offset)
+        .take(limit)
         .getManyAndCount();
+
       res.json({
         success: true,
         data: {
-          properties: properties.map(prop => prop.toJSON()),
+          properties: properties.map(property => property.toJSON()),
           pagination: {
-            page: Number(page),
-            limit: Number(limit),
+            page,
+            limit,
             total,
-            pages: Math.ceil(total / Number(limit))
+            pages: Math.ceil(total / limit)
           }
         }
       });
     } catch (error) {
+      console.error('Error fetching properties:', error);
       res.status(500).json({ success: false, message: 'Failed to fetch properties' });
     }
   }
+
   static async getPropertyDetails(req: AdminRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;
@@ -289,349 +674,64 @@ export class AdminController {
         res.status(400).json({ success: false, message: 'Property ID is required' });
         return;
       }
+
       const propertyRepository = AppDataSource.getRepository(Property);
+      const roomTypeRepository = AppDataSource.getRepository(RoomType);
+
       const property = await propertyRepository.findOne({
         where: { id },
         relations: ['category']
       });
+
       if (!property) {
         res.status(404).json({ success: false, message: 'Property not found' });
         return;
       }
+
+      // Get room types for this property
+      const roomTypes = await roomTypeRepository.find({
+        where: { propertyId: id, isActive: true },
+        order: { displayOrder: 'ASC', price: 'ASC' }
+      });
+
+      const propertyData = property.toJSON();
+      (propertyData as any).roomTypes = roomTypes.map(rt => rt.toJSON());
+
       res.json({
         success: true,
-        data: property.toJSON()
+        data: propertyData
       });
     } catch (error) {
+      console.error('Error fetching property details:', error);
       res.status(500).json({ success: false, message: 'Failed to fetch property details' });
     }
   }
-  static async updatePropertyStatus(req: AdminRequest, res: Response): Promise<void> {
-    try {
-      const { id } = req.params;
-      const { status, isActive, isFeatured } = req.body;
-      if (!id) {
-        res.status(400).json({ success: false, message: 'Property ID is required' });
-        return;
-      }
-      const propertyRepository = AppDataSource.getRepository(Property);
-      const property = await propertyRepository.findOne({ where: { id } });
-      if (!property) {
-        res.status(404).json({ success: false, message: 'Property not found' });
-        return;
-      }
-      if (status !== undefined) property.status = status;
-      if (isActive !== undefined) property.isActive = isActive;
-      if (isFeatured !== undefined) property.isFeatured = isFeatured;
-      await propertyRepository.save(property);
-      res.json({
-        success: true,
-        message: 'Property status updated successfully',
-        data: property.toJSON()
-      });
-    } catch (error) {
-      res.status(500).json({ success: false, message: 'Failed to update property status' });
-    }
-  }
-  static async updatePropertyRating(req: AdminRequest, res: Response): Promise<void> {
-    try {
-      const { id } = req.params;
-      const { rating, reviewCount } = req.body;
-      if (!id) {
-        res.status(400).json({ success: false, message: 'Property ID is required' });
-        return;
-      }
-      if (rating < 0 || rating > 5) {
-        res.status(400).json({ success: false, message: 'Rating must be between 0 and 5' });
-        return;
-      }
-      const propertyRepository = AppDataSource.getRepository(Property);
-      const property = await propertyRepository.findOne({ where: { id } });
-      if (!property) {
-        res.status(404).json({ success: false, message: 'Property not found' });
-        return;
-      }
-      property.rating = rating;
-      if (reviewCount !== undefined) property.reviewCount = reviewCount;
-      await propertyRepository.save(property);
-      res.json({
-        success: true,
-        message: 'Property rating updated successfully',
-        data: property.toJSON()
-      });
-    } catch (error) {
-      res.status(500).json({ success: false, message: 'Failed to update property rating' });
-    }
-  }
-  static async getAllCategories(req: AdminRequest, res: Response): Promise<void> {
-    try {
-      const categoryRepository = AppDataSource.getRepository(Category);
-      const categories = await categoryRepository.find({
-        order: { displayOrder: 'ASC', createdAt: 'DESC' }
-      });
-      res.json({
-        success: true,
-        data: categories.map(cat => cat.toJSON())
-      });
-    } catch (error) {
-      res.status(500).json({ success: false, message: 'Failed to fetch categories' });
-    }
-  }
-  static async getCategoryDetails(req: AdminRequest, res: Response): Promise<void> {
-    try {
-      const { id } = req.params;
-      if (!id) {
-        res.status(400).json({ success: false, message: 'Category ID is required' });
-        return;
-      }
-      const categoryRepository = AppDataSource.getRepository(Category);
-      const category = await categoryRepository.findOne({
-        where: { id },
-        relations: ['properties']
-      });
-      if (!category) {
-        res.status(404).json({ success: false, message: 'Category not found' });
-        return;
-      }
-      res.json({
-        success: true,
-        data: category.toJSON()
-      });
-    } catch (error) {
-      res.status(500).json({ success: false, message: 'Failed to fetch category details' });
-    }
-  }
-  static async updateCategoryStatus(req: AdminRequest, res: Response): Promise<void> {
-    try {
-      const { id } = req.params;
-      const { isActive, displayOrder } = req.body;
-      if (!id) {
-        res.status(400).json({ success: false, message: 'Category ID is required' });
-        return;
-      }
-      const categoryRepository = AppDataSource.getRepository(Category);
-      const category = await categoryRepository.findOne({ where: { id } });
-      if (!category) {
-        res.status(404).json({ success: false, message: 'Category not found' });
-        return;
-      }
-      if (isActive !== undefined) category.isActive = isActive;
-      if (displayOrder !== undefined) category.displayOrder = displayOrder;
-      await categoryRepository.save(category);
-      res.json({
-        success: true,
-        message: 'Category status updated successfully',
-        data: category.toJSON()
-      });
-    } catch (error) {
-      res.status(500).json({ success: false, message: 'Failed to update category status' });
-    }
-  }
-  static async createCategory(req: AdminRequest, res: Response): Promise<void> {
-    try {
-      const { name, description, imageUrl, type = 'hostel', displayOrder = 0 } = req.body;
-      if (!name || !description || !imageUrl) {
-        res.status(400).json({ 
-          success: false, 
-          message: 'Category name, description, and imageUrl are required' 
-        });
-        return;
-      }
-      const categoryRepository = AppDataSource.getRepository(Category);
-      const existingCategory = await categoryRepository.findOne({ 
-        where: { name: name.toLowerCase() } 
-      });
-      if (existingCategory) {
-        res.status(400).json({ 
-          success: false, 
-          message: 'Category with this name already exists' 
-        });
-        return;
-      }
-      const newCategory = categoryRepository.create({
-        name: name.toLowerCase(),
-        description,
-        imageUrl,
-        type,
-        displayOrder,
-        isActive: true,
-        propertyCount: 0
-      });
-      await categoryRepository.save(newCategory);
-      res.status(201).json({
-        success: true,
-        message: 'Category created successfully',
-        data: newCategory.toJSON()
-      });
-    } catch (error) {
-      console.error('Error creating category:', error);
-      res.status(500).json({ success: false, message: 'Failed to create category' });
-    }
-  }
-  static async updateCategory(req: AdminRequest, res: Response): Promise<void> {
-    try {
-      const { id } = req.params;
-      const updateData = req.body;
-      if (!id) {
-        res.status(400).json({ success: false, message: 'Category ID is required' });
-        return;
-      }
-      const categoryRepository = AppDataSource.getRepository(Category);
-      const category = await categoryRepository.findOne({ where: { id } });
-      if (!category) {
-        res.status(404).json({ success: false, message: 'Category not found' });
-        return;
-      }
-      if (updateData.name && updateData.name !== category.name) {
-        const existingCategory = await categoryRepository.findOne({ 
-          where: { name: updateData.name.toLowerCase() } 
-        });
-        if (existingCategory) {
-          res.status(400).json({ 
-            success: false, 
-            message: 'Category with this name already exists' 
-          });
-          return;
-        }
-        updateData.name = updateData.name.toLowerCase();
-      }
-      const allowedFields = ['name', 'description', 'imageUrl', 'type', 'displayOrder', 'isActive'];
-      allowedFields.forEach(field => {
-        if (updateData[field] !== undefined) {
-          (category as any)[field] = updateData[field];
-        }
-      });
-      await categoryRepository.save(category);
-      res.json({
-        success: true,
-        message: 'Category updated successfully',
-        data: category.toJSON()
-      });
-    } catch (error) {
-      console.error('Error updating category:', error);
-      res.status(500).json({ success: false, message: 'Failed to update category' });
-    }
-  }
-  static async deleteCategory(req: AdminRequest, res: Response): Promise<void> {
-    try {
-      const { id } = req.params;
-      if (!id) {
-        res.status(400).json({ success: false, message: 'Category ID is required' });
-        return;
-      }
-      const categoryRepository = AppDataSource.getRepository(Category);
-      const propertyRepository = AppDataSource.getRepository(Property);
-      const category = await categoryRepository.findOne({ where: { id } });
-      if (!category) {
-        res.status(404).json({ success: false, message: 'Category not found' });
-        return;
-      }
-      const activePropertiesCount = await propertyRepository.count({
-        where: { categoryId: id, isActive: true }
-      });
-      if (activePropertiesCount > 0) {
-        res.status(400).json({ 
-          success: false, 
-          message: `Cannot delete category with ${activePropertiesCount} active properties. Please move or deactivate properties first.` 
-        });
-        return;
-      }
-      category.isActive = false;
-      await categoryRepository.save(category);
-      res.json({
-        success: true,
-        message: 'Category deleted successfully'
-      });
-    } catch (error) {
-      console.error('Error deleting category:', error);
-      res.status(500).json({ success: false, message: 'Failed to delete category' });
-    }
-  }
-  static async getCategoryStats(req: AdminRequest, res: Response): Promise<void> {
-    try {
-      const categoryRepository = AppDataSource.getRepository(Category);
-      const propertyRepository = AppDataSource.getRepository(Property);
-      const categories = await categoryRepository.find({
-        order: { displayOrder: 'ASC' }
-      });
-      const categoryStats = await Promise.all(
-        categories.map(async (category) => {
-          const totalProperties = await propertyRepository.count({
-            where: { categoryId: category.id }
-          });
-          const activeProperties = await propertyRepository.count({
-            where: { categoryId: category.id, isActive: true }
-          });
-          const featuredProperties = await propertyRepository.count({
-            where: { categoryId: category.id, isFeatured: true, isActive: true }
-          });
-          return {
-            ...category.toJSON(),
-            stats: {
-              totalProperties,
-              activeProperties,
-              featuredProperties
-            }
-          };
-        })
-      );
-      res.json({
-        success: true,
-        data: categoryStats
-      });
-    } catch (error) {
-      console.error('Error fetching category stats:', error);
-      res.status(500).json({ success: false, message: 'Failed to fetch category statistics' });
-    }
-  }
+
   static async createProperty(req: AdminRequest, res: Response): Promise<void> {
     try {
       const {
         name,
         description,
         mainImageUrl,
-        additionalImageUrls = [],
+        additionalImageUrls,
         location,
         city,
         region,
         latitude,
         longitude,
         price,
-        currency = '₵',
+        currency,
         propertyType,
         categoryId,
-        isFeatured = false,
-        displayOrder = 0
+        isFeatured,
+        displayOrder
       } = req.body;
+
       if (!name || !description || !mainImageUrl || !location || !city || !region || !price || !propertyType || !categoryId) {
-        res.status(400).json({ 
-          success: false, 
-          message: 'Missing required fields: name, description, mainImageUrl, location, city, region, price, propertyType, categoryId' 
-        });
+        res.status(400).json({ success: false, message: 'Missing required fields' });
         return;
       }
-      if (price <= 0) {
-        res.status(400).json({ success: false, message: 'Price must be greater than 0' });
-        return;
-      }
-      const validPropertyTypes = Object.values(PropertyType);
-      if (!validPropertyTypes.includes(propertyType)) {
-        res.status(400).json({ 
-          success: false, 
-          message: `Invalid property type. Must be one of: ${validPropertyTypes.join(', ')}` 
-        });
-        return;
-      }
-      const categoryRepository = AppDataSource.getRepository(Category);
-      const category = await categoryRepository.findOne({ where: { id: categoryId } });
-      if (!category) {
-        res.status(404).json({ success: false, message: 'Category not found' });
-        return;
-      }
-      if (!category.isActive) {
-        res.status(400).json({ success: false, message: 'Cannot add property to inactive category' });
-        return;
-      }
+
       const propertyRepository = AppDataSource.getRepository(Property);
       const newProperty = propertyRepository.create({
         name,
@@ -654,6 +754,7 @@ export class AdminController {
         rating: 0,
         reviewCount: 0
       });
+
       await propertyRepository.save(newProperty);
       const createdProperty = await propertyRepository.findOne({
         where: { id: newProperty.id },
@@ -665,7 +766,7 @@ export class AdminController {
         await NotificationController.createNotificationForAllUsers(
           'New Property Available!',
           `${name} has been added to HosFind. Check it out now!`,
-          NotificationType.NEW_PROPERTY,
+          'new_property' as any,
           {
             propertyId: newProperty.id,
             propertyName: name,
@@ -699,61 +800,52 @@ export class AdminController {
       res.status(500).json({ success: false, message: 'Failed to create property' });
     }
   }
+
   static async updateProperty(req: AdminRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;
       const updateData = req.body;
+
       if (!id) {
         res.status(400).json({ success: false, message: 'Property ID is required' });
         return;
       }
+
       const propertyRepository = AppDataSource.getRepository(Property);
       const property = await propertyRepository.findOne({ where: { id } });
+
       if (!property) {
         res.status(404).json({ success: false, message: 'Property not found' });
         return;
       }
-      if (updateData.price !== undefined && updateData.price <= 0) {
-        res.status(400).json({ success: false, message: 'Price must be greater than 0' });
-        return;
-      }
-      if (updateData.propertyType !== undefined) {
-        const validPropertyTypes = Object.values(PropertyType);
-        if (!validPropertyTypes.includes(updateData.propertyType)) {
-          res.status(400).json({ 
-            success: false, 
-            message: `Invalid property type. Must be one of: ${validPropertyTypes.join(', ')}` 
-          });
-          return;
-        }
-      }
-      if (updateData.categoryId !== undefined) {
-        const categoryRepository = AppDataSource.getRepository(Category);
-        const category = await categoryRepository.findOne({ where: { id: updateData.categoryId } });
-        if (!category) {
-          res.status(404).json({ success: false, message: 'Category not found' });
-          return;
-        }
-        if (!category.isActive) {
-          res.status(400).json({ success: false, message: 'Cannot move property to inactive category' });
-          return;
-        }
-      }
+
       const allowedFields = [
-        'name', 'description', 'mainImageUrl', 'additionalImageUrls',
-        'location', 'city', 'region', 'latitude', 'longitude', 'price', 'currency', 'propertyType',
-        'categoryId', 'isFeatured', 'displayOrder', 'status', 'isActive'
+        'name', 'description', 'mainImageUrl', 'additionalImageUrls', 'location',
+        'city', 'region', 'latitude', 'longitude', 'price', 'currency',
+        'propertyType', 'categoryId', 'isFeatured', 'displayOrder', 'status', 'isActive'
       ];
+
       allowedFields.forEach(field => {
         if (updateData[field] !== undefined) {
-          (property as any)[field] = updateData[field];
+          if (field === 'price' || field === 'latitude' || field === 'longitude') {
+            (property as any)[field] = parseFloat(updateData[field]);
+          } else if (field === 'isFeatured' || field === 'isActive') {
+            (property as any)[field] = Boolean(updateData[field]);
+          } else if (field === 'displayOrder') {
+            (property as any)[field] = parseInt(updateData[field]);
+          } else {
+            (property as any)[field] = updateData[field];
+          }
         }
       });
+
       await propertyRepository.save(property);
+
       const updatedProperty = await propertyRepository.findOne({
         where: { id },
         relations: ['category']
       });
+
       res.json({
         success: true,
         message: 'Property updated successfully',
@@ -764,6 +856,83 @@ export class AdminController {
       res.status(500).json({ success: false, message: 'Failed to update property' });
     }
   }
+
+  static async updatePropertyRating(req: AdminRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { rating } = req.body;
+
+      if (!id || typeof rating !== 'number' || rating < 1 || rating > 5) {
+        res.status(400).json({ success: false, message: 'Invalid rating or property ID' });
+        return;
+      }
+
+      const propertyRepository = AppDataSource.getRepository(Property);
+      const property = await propertyRepository.findOne({ where: { id } });
+
+      if (!property) {
+        res.status(404).json({ success: false, message: 'Property not found' });
+        return;
+      }
+
+      property.rating = rating;
+      await propertyRepository.save(property);
+
+      res.json({
+        success: true,
+        message: 'Property rating updated successfully',
+        data: property.toJSON()
+      });
+    } catch (error) {
+      console.error('Error updating property rating:', error);
+      res.status(500).json({ success: false, message: 'Failed to update property rating' });
+    }
+  }
+
+  static async bulkUpdatePropertyStatuses(req: AdminRequest, res: Response): Promise<void> {
+    try {
+      const { propertyIds, status, isActive } = req.body;
+
+      if (!Array.isArray(propertyIds) || propertyIds.length === 0) {
+        res.status(400).json({ success: false, message: 'Property IDs are required' });
+        return;
+      }
+
+      if (typeof status !== 'string' || !Object.values(PropertyStatus).includes(status as PropertyStatus)) {
+        res.status(400).json({ success: false, message: 'Invalid status provided' });
+        return;
+      }
+
+      if (typeof isActive !== 'boolean') {
+        res.status(400).json({ success: false, message: 'isActive must be a boolean' });
+        return;
+      }
+
+      const propertyRepository = AppDataSource.getRepository(Property);
+      const properties = await propertyRepository.findByIds(propertyIds);
+
+      if (properties.length === 0) {
+        res.status(404).json({ success: false, message: 'No properties found with the provided IDs' });
+        return;
+      }
+
+      for (const property of properties) {
+        property.status = status as PropertyStatus;
+        property.isActive = isActive;
+        await propertyRepository.save(property);
+      }
+
+      res.json({
+        success: true,
+        message: `Successfully updated ${properties.length} properties`,
+        data: properties.map(p => p.toJSON())
+      });
+    } catch (error) {
+      console.error('Error bulk updating property statuses:', error);
+      res.status(500).json({ success: false, message: 'Failed to bulk update property statuses' });
+    }
+  }
+
   static async deleteProperty(req: AdminRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;
@@ -771,14 +940,18 @@ export class AdminController {
         res.status(400).json({ success: false, message: 'Property ID is required' });
         return;
       }
+
       const propertyRepository = AppDataSource.getRepository(Property);
       const property = await propertyRepository.findOne({ where: { id } });
+
       if (!property) {
         res.status(404).json({ success: false, message: 'Property not found' });
         return;
       }
+
       property.isActive = false;
       await propertyRepository.save(property);
+
       res.json({
         success: true,
         message: 'Property deleted successfully'
@@ -788,64 +961,440 @@ export class AdminController {
       res.status(500).json({ success: false, message: 'Failed to delete property' });
     }
   }
-  static async bulkUpdatePropertyStatuses(req: AdminRequest, res: Response): Promise<void> {
-    try {
-      const { propertyIds, status, isActive, isFeatured } = req.body;
-      if (!propertyIds || !Array.isArray(propertyIds) || propertyIds.length === 0) {
-        res.status(400).json({ success: false, message: 'Property IDs array is required' });
-        return;
-      }
-      const propertyRepository = AppDataSource.getRepository(Property);
-      const updateData: any = {};
-      if (status !== undefined) updateData.status = status;
-      if (isActive !== undefined) updateData.isActive = isActive;
-      if (isFeatured !== undefined) updateData.isFeatured = isFeatured;
-      if (Object.keys(updateData).length === 0) {
-        res.status(400).json({ success: false, message: 'No update data provided' });
-        return;
-      }
-      await propertyRepository.update(propertyIds, updateData);
-      res.json({
-        success: true,
-        message: `Successfully updated ${propertyIds.length} properties`
-      });
-    } catch (error) {
-      console.error('Error bulk updating properties:', error);
-      res.status(500).json({ success: false, message: 'Failed to bulk update properties' });
-    }
-  }
 
-  // Room Type Management Methods
-  static async createRoomType(req: AdminRequest, res: Response): Promise<void> {
+  static async updatePropertyStatus(req: AdminRequest, res: Response): Promise<void> {
     try {
-      const roomTypeRepository = AppDataSource.getRepository(RoomType);
+      const { id } = req.params;
+      const { status, isActive } = req.body;
+
+      if (!id) {
+        res.status(400).json({ success: false, message: 'Property ID is required' });
+        return;
+      }
+
       const propertyRepository = AppDataSource.getRepository(Property);
-      
-      const property = await propertyRepository.findOne({ where: { id: req.body.propertyId } });
+      const property = await propertyRepository.findOne({ where: { id } });
+
       if (!property) {
         res.status(404).json({ success: false, message: 'Property not found' });
         return;
       }
 
+      if (status) {
+        property.status = status;
+      }
+
+      if (typeof isActive === 'boolean') {
+        property.isActive = isActive;
+      }
+
+      await propertyRepository.save(property);
+
+      res.json({
+        success: true,
+        message: 'Property status updated successfully',
+        data: property.toJSON()
+      });
+    } catch (error) {
+      console.error('Error updating property status:', error);
+      res.status(500).json({ success: false, message: 'Failed to update property status' });
+    }
+  }
+
+  static async getAllCategories(req: AdminRequest, res: Response): Promise<void> {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const search = req.query.search as string || '';
+      const offset = (page - 1) * limit;
+
+      const categoryRepository = AppDataSource.getRepository(Category);
+      const queryBuilder = categoryRepository.createQueryBuilder('category');
+
+      if (search) {
+        queryBuilder.where(
+          'category.name ILIKE :search OR category.description ILIKE :search',
+          { search: `%${search}%` }
+        );
+      }
+
+      const [categories, total] = await queryBuilder
+        .orderBy('category.displayOrder', 'ASC')
+        .addOrderBy('category.createdAt', 'DESC')
+        .skip(offset)
+        .take(limit)
+        .getManyAndCount();
+
+      res.json({
+        success: true,
+        data: categories.map(category => category.toJSON())
+      });
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch categories' });
+    }
+  }
+
+  static async getCategoryDetails(req: AdminRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        res.status(400).json({ success: false, message: 'Category ID is required' });
+        return;
+      }
+
+      const categoryRepository = AppDataSource.getRepository(Category);
+      const propertyRepository = AppDataSource.getRepository(Property);
+
+      const category = await categoryRepository.findOne({
+        where: { id }
+      });
+
+      if (!category) {
+        res.status(404).json({ success: false, message: 'Category not found' });
+        return;
+      }
+
+      // Get all properties in this category
+      const properties = await propertyRepository.find({
+        where: { categoryId: id, isActive: true },
+        order: { displayOrder: 'ASC', createdAt: 'DESC' }
+      });
+
+      const categoryData = category.toJSON();
+      (categoryData as any).properties = properties.map(p => p.toJSON());
+
+      res.json({
+        success: true,
+        data: categoryData
+      });
+    } catch (error) {
+      console.error('Error fetching category details:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch category details' });
+    }
+  }
+
+  static async updateCategoryStatus(req: AdminRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { isActive, displayOrder } = req.body;
+      if (!id) {
+        res.status(400).json({ success: false, message: 'Category ID is required' });
+        return;
+      }
+      const categoryRepository = AppDataSource.getRepository(Category);
+      const category = await categoryRepository.findOne({ where: { id } });
+      if (!category) {
+        res.status(404).json({ success: false, message: 'Category not found' });
+        return;
+      }
+      if (isActive !== undefined) category.isActive = isActive;
+      if (displayOrder !== undefined) category.displayOrder = displayOrder;
+      await categoryRepository.save(category);
+      res.json({
+        success: true,
+        message: 'Category status updated successfully',
+        data: category.toJSON()
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, message: 'Failed to update category status' });
+    }
+  }
+
+  static async createCategory(req: AdminRequest, res: Response): Promise<void> {
+    try {
+      const { name, description, imageUrl, type = 'hostel', displayOrder = 0 } = req.body;
+      if (!name || !description || !imageUrl) {
+        res.status(400).json({ 
+          success: false, 
+          message: 'Category name, description, and imageUrl are required' 
+        });
+        return;
+      }
+      const categoryRepository = AppDataSource.getRepository(Category);
+      const existingCategory = await categoryRepository.findOne({ 
+        where: { name: name.toLowerCase() } 
+      });
+      if (existingCategory) {
+        res.status(400).json({ 
+          success: false, 
+          message: 'Category with this name already exists' 
+        });
+        return;
+      }
+      const newCategory = categoryRepository.create({
+        name: name.toLowerCase(),
+        description,
+        imageUrl,
+        type,
+        displayOrder,
+        isActive: true,
+        propertyCount: 0
+      });
+      await categoryRepository.save(newCategory);
+
+      // Create notification for all users about the new category
+      try {
+        await NotificationController.createNotificationForAllUsers(
+          'New Property Category! 🏘️',
+          `A new ${name} category has been added. Explore properties in this category now!`,
+          NotificationType.SYSTEM,
+          {
+            type: 'new_category',
+            categoryId: newCategory.id,
+            categoryName: name
+          }
+        );
+      } catch (notificationError) {
+        console.error('Error creating notification for new category:', notificationError);
+        // Don't fail the category creation if notification fails
+      }
+
+      res.status(201).json({
+        success: true,
+        message: 'Category created successfully',
+        data: newCategory.toJSON()
+      });
+    } catch (error) {
+      console.error('Error creating category:', error);
+      res.status(500).json({ success: false, message: 'Failed to create category' });
+    }
+  }
+
+  static async updateCategory(req: AdminRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { name, description, imageUrl, type, displayOrder } = req.body;
+
+      if (!id) {
+        res.status(400).json({ success: false, message: 'Category ID is required' });
+        return;
+      }
+
+      const categoryRepository = AppDataSource.getRepository(Category);
+      const category = await categoryRepository.findOne({ where: { id } });
+
+      if (!category) {
+        res.status(404).json({ success: false, message: 'Category not found' });
+        return;
+      }
+
+      if (name) category.name = name.toLowerCase();
+      if (description) category.description = description;
+      if (imageUrl) category.imageUrl = imageUrl;
+      if (type) category.type = type;
+      if (displayOrder !== undefined) category.displayOrder = displayOrder;
+
+      await categoryRepository.save(category);
+
+      res.json({
+        success: true,
+        message: 'Category updated successfully',
+        data: category.toJSON()
+      });
+    } catch (error) {
+      console.error('Error updating category:', error);
+      res.status(500).json({ success: false, message: 'Failed to update category' });
+    }
+  }
+
+  static async deleteCategory(req: AdminRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        res.status(400).json({ success: false, message: 'Category ID is required' });
+        return;
+      }
+
+      const categoryRepository = AppDataSource.getRepository(Category);
+      const propertyRepository = AppDataSource.getRepository(Property);
+
+      const category = await categoryRepository.findOne({ where: { id } });
+      if (!category) {
+        res.status(404).json({ success: false, message: 'Category not found' });
+        return;
+      }
+
+      // Check if category has active properties
+      const activeProperties = await propertyRepository.count({
+        where: { categoryId: id, isActive: true }
+      });
+
+      if (activeProperties > 0) {
+        res.status(400).json({
+          success: false,
+          message: `Cannot delete category. It has ${activeProperties} active properties.`
+        });
+        return;
+      }
+
+      category.isActive = false;
+      await categoryRepository.save(category);
+
+      res.json({
+        success: true,
+        message: 'Category deleted successfully'
+      });
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      res.status(500).json({ success: false, message: 'Failed to delete category' });
+    }
+  }
+
+  static async getAllRoomTypes(req: AdminRequest, res: Response): Promise<void> {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const search = req.query.search as string || '';
+      const propertyId = req.query.propertyId as string || '';
+      const offset = (page - 1) * limit;
+
+      const roomTypeRepository = AppDataSource.getRepository(RoomType);
+      const queryBuilder = roomTypeRepository
+        .createQueryBuilder('roomType')
+        .leftJoinAndSelect('roomType.property', 'property');
+
+      if (search) {
+        queryBuilder.where(
+          'roomType.name ILIKE :search OR roomType.description ILIKE :search',
+          { search: `%${search}%` }
+        );
+      }
+
+      if (propertyId) {
+        queryBuilder.andWhere('roomType.propertyId = :propertyId', { propertyId });
+      }
+
+      const [roomTypes, total] = await queryBuilder
+        .orderBy('roomType.displayOrder', 'ASC')
+        .addOrderBy('roomType.createdAt', 'DESC')
+        .skip(offset)
+        .take(limit)
+        .getManyAndCount();
+
+      res.json({
+        success: true,
+        data: roomTypes.map(roomType => roomType.toJSON())
+      });
+    } catch (error) {
+      console.error('Error fetching room types:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch room types' });
+    }
+  }
+
+  static async getRoomTypeDetails(req: AdminRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        res.status(400).json({ success: false, message: 'Room type ID is required' });
+        return;
+      }
+
+      const roomTypeRepository = AppDataSource.getRepository(RoomType);
+      const propertyRepository = AppDataSource.getRepository(Property);
+
+      const roomType = await roomTypeRepository.findOne({
+        where: { id }
+      });
+
+      if (!roomType) {
+        res.status(404).json({ success: false, message: 'Room type not found' });
+        return;
+      }
+
+      // Get the associated property details
+      const property = await propertyRepository.findOne({
+        where: { id: roomType.propertyId },
+        relations: ['category']
+      });
+
+      const roomTypeData = roomType.toJSON();
+      (roomTypeData as any).property = property ? property.toJSON() : null;
+
+      res.json({
+        success: true,
+        data: roomTypeData
+      });
+    } catch (error) {
+      console.error('Error fetching room type details:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch room type details' });
+    }
+  }
+
+  static async createRoomType(req: AdminRequest, res: Response): Promise<void> {
+    try {
+      const {
+        name,
+        description,
+        price,
+        currency,
+        genderType,
+        capacity,
+        roomTypeCategory,
+        isAvailable,
+        availableRooms,
+        totalRooms,
+        amenities,
+        imageUrl,
+        additionalImageUrls,
+        propertyId,
+        displayOrder
+      } = req.body;
+
+      if (!name || !description || !price || !capacity || !genderType || !propertyId) {
+        res.status(400).json({ success: false, message: 'Missing required fields' });
+        return;
+      }
+
+      const roomTypeRepository = AppDataSource.getRepository(RoomType);
+      const propertyRepository = AppDataSource.getRepository(Property);
+
+      // Verify property exists
+      const property = await propertyRepository.findOne({ where: { id: propertyId } });
+      if (!property) {
+        res.status(400).json({ success: false, message: 'Property not found' });
+        return;
+      }
+
       const roomType = roomTypeRepository.create({
-        name: req.body.name,
-        description: req.body.description,
-        price: parseFloat(req.body.price),
-        currency: req.body.currency || '₵',
-        genderType: req.body.genderType || 'any',
-        capacity: parseInt(req.body.capacity) || 1,
-        roomTypeCategory: req.body.roomTypeCategory,
-        isAvailable: req.body.isAvailable !== false,
-        availableRooms: parseInt(req.body.availableRooms) || 0,
-        totalRooms: parseInt(req.body.totalRooms) || 1,
-        amenities: req.body.amenities || [],
-        imageUrl: req.body.imageUrl,
+        name,
+        description,
+        price: parseFloat(price),
+        currency: currency || '₵',
+        genderType: genderType || 'any',
+        capacity: parseInt(capacity) || 1,
+        roomTypeCategory,
+        isAvailable: isAvailable !== false,
+        availableRooms: parseInt(availableRooms) || 0,
+        totalRooms: parseInt(totalRooms) || 1,
+        amenities: amenities || [],
+        imageUrl,
+        additionalImageUrls: additionalImageUrls || [],
         propertyId: req.body.propertyId,
-        displayOrder: parseInt(req.body.displayOrder) || 0,
+        displayOrder: parseInt(displayOrder) || 0,
         isActive: true
       });
 
       await roomTypeRepository.save(roomType);
+
+      // Create notification for all users about the new room type
+      try {
+        await NotificationController.createNotificationForAllUsers(
+          'New Room Type Available! 🏠',
+          `A new ${name} room type has been added to ${property.name}. Check it out now!`,
+          NotificationType.SYSTEM,
+          {
+            type: 'new_room_type',
+            roomTypeId: roomType.id,
+            propertyId: property.id,
+            propertyName: property.name
+          }
+        );
+      } catch (notificationError) {
+        console.error('Error creating notification for new room type:', notificationError);
+        // Don't fail the room type creation if notification fails
+      }
+
       res.status(201).json({
         success: true,
         message: 'Room type created successfully',
@@ -872,7 +1421,7 @@ export class AdminController {
       const allowedFields = [
         'name', 'description', 'price', 'currency', 'genderType', 'capacity',
         'roomTypeCategory', 'isAvailable', 'availableRooms', 'totalRooms',
-        'amenities', 'imageUrl', 'displayOrder', 'isActive'
+        'amenities', 'imageUrl', 'additionalImageUrls', 'displayOrder', 'isActive'
       ];
 
       allowedFields.forEach(field => {
@@ -919,6 +1468,179 @@ export class AdminController {
     } catch (error) {
       console.error('Error deleting room type:', error);
       res.status(500).json({ success: false, message: 'Failed to delete room type' });
+    }
+  }
+
+  static async getCategoryStats(req: AdminRequest, res: Response): Promise<void> {
+    try {
+      const categoryRepository = AppDataSource.getRepository(Category);
+      const propertyRepository = AppDataSource.getRepository(Property);
+
+      const categories = await categoryRepository.find({
+        select: ['id', 'name', 'type', 'isActive', 'propertyCount'],
+        order: { displayOrder: 'ASC', createdAt: 'DESC' }
+      });
+
+      const stats = await Promise.all(categories.map(async category => {
+        const activeProperties = await propertyRepository.count({
+          where: { categoryId: category.id, isActive: true }
+        });
+        return {
+          ...category,
+          activePropertiesCount: activeProperties
+        };
+      }));
+
+      res.json({
+        success: true,
+        data: stats
+      });
+    } catch (error) {
+      console.error('Error fetching category stats:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch category stats' });
+    }
+  }
+
+  // Settings Management Methods
+  static async getAdminProfile(req: AdminRequest, res: Response): Promise<void> {
+    try {
+      const adminId = req.admin?.id;
+      if (!adminId) {
+        res.status(401).json({ success: false, message: 'Admin not authenticated' });
+        return;
+      }
+
+      const adminRepository = AppDataSource.getRepository(Admin);
+      const admin = await adminRepository.findOne({ where: { id: adminId } });
+
+      if (!admin) {
+        res.status(404).json({ success: false, message: 'Admin not found' });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: {
+          id: admin.id,
+          fullName: admin.fullName,
+          email: admin.email,
+          role: admin.role,
+          lastLoginAt: admin.lastLoginAt,
+          createdAt: admin.createdAt
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching admin profile:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch admin profile' });
+    }
+  }
+
+  static async updateAdminProfile(req: AdminRequest, res: Response): Promise<void> {
+    try {
+      const adminId = req.admin?.id;
+      const { fullName, email, currentPassword, newPassword } = req.body;
+
+      if (!adminId) {
+        res.status(401).json({ success: false, message: 'Admin not authenticated' });
+        return;
+      }
+
+      const adminRepository = AppDataSource.getRepository(Admin);
+      const admin = await adminRepository.findOne({ where: { id: adminId } });
+
+      if (!admin) {
+        res.status(404).json({ success: false, message: 'Admin not found' });
+        return;
+      }
+
+      // Update basic info
+      if (fullName) admin.fullName = fullName;
+      if (email && email !== admin.email) {
+        const existingAdmin = await adminRepository.findOne({ where: { email } });
+        if (existingAdmin) {
+          res.status(409).json({ success: false, message: 'Email already taken' });
+          return;
+        }
+        admin.email = email;
+      }
+
+      // Update password if provided
+      if (currentPassword && newPassword) {
+        const isPasswordValid = await bcrypt.compare(currentPassword, admin.password);
+        if (!isPasswordValid) {
+          res.status(400).json({ success: false, message: 'Current password is incorrect' });
+          return;
+        }
+
+        if (newPassword.length < 6) {
+          res.status(400).json({ success: false, message: 'New password must be at least 6 characters long' });
+          return;
+        }
+
+        admin.password = await bcrypt.hash(newPassword, 10);
+      }
+
+      await adminRepository.save(admin);
+
+      res.json({
+        success: true,
+        message: 'Profile updated successfully',
+        data: {
+          id: admin.id,
+          fullName: admin.fullName,
+          email: admin.email,
+          role: admin.role,
+          lastLoginAt: admin.lastLoginAt,
+          createdAt: admin.createdAt
+        }
+      });
+    } catch (error) {
+      console.error('Error updating admin profile:', error);
+      res.status(500).json({ success: false, message: 'Failed to update admin profile' });
+    }
+  }
+
+  static async getAppSettings(req: AdminRequest, res: Response): Promise<void> {
+    try {
+      // For now, return default settings. In a real app, these would come from a settings table
+      res.json({
+        success: true,
+        data: {
+          appName: process.env.APP_NAME || 'HosFind Admin',
+          appVersion: process.env.APP_VERSION || '1.0.0',
+          environment: process.env.NODE_ENV || 'development',
+          maintenanceMode: false,
+          allowRegistrations: true,
+          requireEmailVerification: true,
+          requirePhoneVerification: false
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching app settings:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch app settings' });
+    }
+  }
+
+  static async updateAppSettings(req: AdminRequest, res: Response): Promise<void> {
+    try {
+      const { maintenanceMode, allowRegistrations, requireEmailVerification, requirePhoneVerification } = req.body;
+
+      // In a real app, these would be saved to a settings table
+      // For now, we'll just return success
+      console.log('App settings updated:', {
+        maintenanceMode,
+        allowRegistrations,
+        requireEmailVerification,
+        requirePhoneVerification
+      });
+
+      res.json({
+        success: true,
+        message: 'App settings updated successfully'
+      });
+    } catch (error) {
+      console.error('Error updating app settings:', error);
+      res.status(500).json({ success: false, message: 'Failed to update app settings' });
     }
   }
 } 
