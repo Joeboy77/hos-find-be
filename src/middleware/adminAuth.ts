@@ -1,9 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { AppDataSource } from '../config/database';
-import { Admin } from '../models/Admin';
+import { Admin, AdminRole } from '../models/Admin';
+
 interface AdminRequest extends Request {
-  admin?: Admin;
+  admin?: {
+    id: string;
+    email: string;
+    role: AdminRole;
+  };
 }
 export const authenticateAdmin = async (
   req: AdminRequest,
