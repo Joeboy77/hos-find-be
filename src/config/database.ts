@@ -21,11 +21,23 @@ if (isProduction) {
     url: process.env.DATABASE_URL,
     synchronize: false, // Never auto-sync in production
     logging: false,
-    ssl: { rejectUnauthorized: false },
+    ssl: {
+      rejectUnauthorized: false,
+      require: true
+    },
+    extra: {
+      ssl: {
+        rejectUnauthorized: false,
+        require: true
+      }
+    },
     entities: [User, Admin, Category, Property, RoomType, Like, Notification],
     migrations: ['src/migrations/*.ts'],
     subscribers: ['src/subscribers/*.ts'],
   };
+  
+  console.log('🔧 [DATABASE] Production mode - Using DATABASE_URL');
+  console.log('🔧 [DATABASE] DATABASE_URL exists:', !!process.env.DATABASE_URL);
 } else {
   // Development: Use individual environment variables
   dbConfig = {
@@ -42,6 +54,8 @@ if (isProduction) {
     migrations: ['src/migrations/*.ts'],
     subscribers: ['src/subscribers/*.ts'],
   };
+  
+  console.log('🔧 [DATABASE] Development mode - Using local PostgreSQL');
 }
 
 export const AppDataSource = new DataSource(dbConfig);
