@@ -291,4 +291,53 @@ export class NotificationController {
       console.error('Error creating notification for user:', error);
     }
   }
+
+  static async testPushNotification(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      console.log('🧪 [TEST] User testing push notification...');
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        res.status(401).json({ success: false, message: 'User not authenticated' });
+        return;
+      }
+
+      // Get the user to check if they have a push token
+      const userRepository = AppDataSource.getRepository(User);
+      const user = await userRepository.findOne({ where: { id: userId } });
+
+      if (!user) {
+        res.status(404).json({ success: false, message: 'User not found' });
+        return;
+      }
+
+      if (!user.pushToken) {
+        res.status(400).json({ success: false, message: 'No push token registered for this user' });
+        return;
+      }
+
+      console.log('🧪 [TEST] Sending test push notification to user:', userId);
+      console.log('🧪 [TEST] User push token:', user.pushToken);
+
+      // Create a test notification for this specific user
+      await NotificationController.createNotificationForUser(
+        userId,
+        'Test Push Notification',
+        'This is a test push notification! If you see this, push notifications are working correctly.',
+        'test' as any,
+        {
+          type: 'test',
+          timestamp: new Date().toISOString()
+        }
+      );
+
+      res.json({
+        success: true,
+        message: 'Test push notification sent successfully'
+      });
+    } catch (error) {
+      console.error('Error sending test push notification:', error);
+      res.status(500).json({ success: false, message: 'Failed to send test push notification' });
+    }
+  }
 } 
