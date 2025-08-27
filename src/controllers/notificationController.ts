@@ -163,15 +163,24 @@ export class NotificationController {
 
   static async registerPushToken(req: AuthRequest, res: Response): Promise<void> {
     try {
+      console.log('🔔 [PUSH] Register push token request received');
+      console.log('🔔 [PUSH] Request body:', req.body);
+      console.log('🔔 [PUSH] Request user:', req.user);
+      
       const userId = req.user?.id;
       const { pushToken } = req.body;
 
+      console.log('🔔 [PUSH] User ID:', userId);
+      console.log('🔔 [PUSH] Push token:', pushToken);
+
       if (!userId) {
+        console.log('❌ [PUSH] No user ID found in request');
         res.status(401).json({ success: false, message: 'User not authenticated' });
         return;
       }
 
       if (!pushToken) {
+        console.log('❌ [PUSH] No push token provided in request body');
         res.status(400).json({ success: false, message: 'Push token is required' });
         return;
       }
@@ -180,19 +189,26 @@ export class NotificationController {
       const user = await userRepository.findOne({ where: { id: userId } });
 
       if (!user) {
+        console.log('❌ [PUSH] User not found in database:', userId);
         res.status(404).json({ success: false, message: 'User not found' });
         return;
       }
 
+      console.log('🔔 [PUSH] Found user:', user.email);
+      console.log('🔔 [PUSH] Current push token:', user.pushToken);
+      console.log('🔔 [PUSH] New push token:', pushToken);
+
       user.pushToken = pushToken;
       await userRepository.save(user);
+
+      console.log('✅ [PUSH] Push token saved successfully for user:', userId);
 
       res.json({
         success: true,
         message: 'Push token registered successfully'
       });
     } catch (error) {
-      console.error('Error registering push token:', error);
+      console.error('❌ [PUSH] Error registering push token:', error);
       res.status(500).json({ success: false, message: 'Failed to register push token' });
     }
   }
