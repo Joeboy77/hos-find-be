@@ -59,5 +59,6 @@ if (isProduction) {
   console.log('🔧 [DATABASE] Development mode - Using local PostgreSQL');
 }
 
-export const AppDataSource = new DataSource(dbConfig);
+const AppDataSource = new DataSource(dbConfig);
+export { AppDataSource };
 export default AppDataSource; 
