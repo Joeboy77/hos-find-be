@@ -6,7 +6,7 @@ import { Property } from '../models/Property';
 import { RoomType } from '../models/RoomType';
 import { Like } from '../models/Like';
 import { Notification } from '../models/Notification';
-import { RegionalSection } from '../models/RegionalSection';
+// import { RegionalSection } from '../models/RegionalSection';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -32,7 +32,7 @@ if (isProduction) {
         require: true
       }
     },
-    entities: [User, Admin, Category, Property, RoomType, Like, Notification, RegionalSection],
+    entities: [User, Admin, Category, Property, RoomType, Like, Notification],
     migrations: ['src/migrations/*.ts'],
     subscribers: ['src/subscribers/*.ts'],
   };
@@ -51,7 +51,7 @@ if (isProduction) {
     synchronize: true, // Auto-sync in development
     logging: true,
     ssl: false,
-    entities: [User, Admin, Category, Property, RoomType, Like, Notification, RegionalSection],
+    entities: [User, Admin, Category, Property, RoomType, Like, Notification],
     migrations: ['src/migrations/*.ts'],
     subscribers: ['src/subscribers/*.ts'],
   };

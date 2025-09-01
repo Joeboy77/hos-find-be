@@ -7,7 +7,7 @@ import {
   OneToMany
 } from 'typeorm';
 import { IsNotEmpty, IsUrl } from 'class-validator';
-import { Property } from './Property';
+// Forward reference to avoid circular import
 
 @Entity('regional_sections')
 export class RegionalSection {
@@ -52,8 +52,8 @@ export class RegionalSection {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @OneToMany(() => Property, property => property.regionalSection)
-  properties: Property[];
+  @OneToMany('Property', 'regionalSection')
+  properties: any[];
 
   toJSON() {
     return {

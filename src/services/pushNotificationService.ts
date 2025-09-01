@@ -149,17 +149,22 @@ export class PushNotificationService {
       const result = await response.json();
       console.log(`🔔 [PUSH] Expo response result:`, result);
       
-      if (result.data?.status === 'error') {
-        const errorMessage = result.data.message || 'Unknown Expo error';
-        console.error(`🔔 [PUSH] Expo push error:`, errorMessage);
+      // Type guard to check if result has the expected structure
+      if (result && typeof result === 'object' && 'data' in result && 
+          result.data && typeof result.data === 'object' && 'status' in result.data) {
         
-        if (attempt < this.MAX_RETRIES) {
-          console.log(`🔔 [PUSH] Retrying in ${this.RETRY_DELAY}ms...`);
-          await this.delay(this.RETRY_DELAY);
-          return this.sendPushNotificationWithRetry(expoPushToken, notification, attempt + 1);
+        if (result.data.status === 'error') {
+          const errorMessage = (result.data as any).message || 'Unknown Expo error';
+          console.error(`🔔 [PUSH] Expo push error:`, errorMessage);
+          
+          if (attempt < this.MAX_RETRIES) {
+            console.log(`🔔 [PUSH] Retrying in ${this.RETRY_DELAY}ms...`);
+            await this.delay(this.RETRY_DELAY);
+            return this.sendPushNotificationWithRetry(expoPushToken, notification, attempt + 1);
+          }
+          
+          throw new Error(`Expo push error: ${errorMessage}`);
         }
-        
-        throw new Error(`Expo push error: ${errorMessage}`);
       }
 
       console.log(`✅ [PUSH] Push notification sent successfully to Expo on attempt ${attempt}`);
