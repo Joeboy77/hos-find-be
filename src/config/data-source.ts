@@ -10,7 +10,7 @@ import { RegionalSection } from '../models/RegionalSection';
 import dotenv from 'dotenv';
 dotenv.config();
 
-// Database configuration based on environment
+// Database configuration for migrations
 const isProduction = process.env.NODE_ENV === 'production';
 
 let dbConfig: any;
@@ -20,8 +20,8 @@ if (isProduction) {
   dbConfig = {
     type: 'postgres',
     url: process.env.DATABASE_URL,
-    synchronize: false, // Never auto-sync in production
-    logging: false,
+    synchronize: false,
+    logging: true,
     ssl: {
       rejectUnauthorized: false,
       require: true
@@ -36,9 +36,6 @@ if (isProduction) {
     migrations: ['src/migrations/*.ts'],
     subscribers: ['src/subscribers/*.ts'],
   };
-  
-  console.log('🔧 [DATABASE] Production mode - Using DATABASE_URL');
-  console.log('🔧 [DATABASE] DATABASE_URL exists:', !!process.env.DATABASE_URL);
 } else {
   // Development: Use individual environment variables
   dbConfig = {
@@ -48,16 +45,14 @@ if (isProduction) {
     username: process.env.DB_USERNAME || 'postgres',
     password: process.env.DB_PASSWORD || 'postgres',
     database: process.env.DB_NAME || 'hosfind',
-    synchronize: true, // Auto-sync in development
+    synchronize: false,
     logging: true,
     ssl: false,
     entities: [User, Admin, Category, Property, RoomType, Like, Notification, RegionalSection],
     migrations: ['src/migrations/*.ts'],
     subscribers: ['src/subscribers/*.ts'],
   };
-  
-  console.log('🔧 [DATABASE] Development mode - Using local PostgreSQL');
 }
 
-export const AppDataSource = new DataSource(dbConfig);
-export default AppDataSource; 
+const AppDataSource = new DataSource(dbConfig);
+export default AppDataSource;

@@ -1110,7 +1110,7 @@ export class AdminController {
 
   static async createCategory(req: AdminRequest, res: Response): Promise<void> {
     try {
-      const { name, description, imageUrl, type = 'hostel', displayOrder = 0 } = req.body;
+      const { name, description, imageUrl, type = 'hostel', displayOrder = 0, icon, color } = req.body;
       if (!name || !description || !imageUrl) {
         res.status(400).json({ 
           success: false, 
@@ -1134,6 +1134,8 @@ export class AdminController {
         description,
         imageUrl,
         type,
+        icon,
+        color,
         displayOrder,
         isActive: true,
         propertyCount: 0
