@@ -1,5 +1,3 @@
-const { MigrationInterface, QueryRunner } = require("typeorm");
-
 class AddIconColorAndRegionalSections1756743708729 {
     name = 'AddIconColorAndRegionalSections1756743708729';
 
