@@ -12,6 +12,7 @@ declare global {
     }
   }
 }
+//FIXME: ENHANCE
 export const authenticateUser = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
