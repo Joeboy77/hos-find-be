@@ -1110,18 +1110,21 @@ export class AdminController {
 
   static async createCategory(req: AdminRequest, res: Response): Promise<void> {
     try {
-      const { name, description, imageUrl, type = 'hostel', displayOrder = 0, icon, color } = req.body;
-      if (!name || !description || !imageUrl) {
+      const { name, description, imageUrl, type, displayOrder = 0, icon, color } = req.body;
+      
+      if (!name || !icon || !color) {
         res.status(400).json({ 
           success: false, 
-          message: 'Category name, description, and imageUrl are required' 
+          message: 'Category name, icon, and color are required' 
         });
         return;
       }
+
       const categoryRepository = AppDataSource.getRepository(Category);
       const existingCategory = await categoryRepository.findOne({ 
         where: { name: name.toLowerCase() } 
       });
+      
       if (existingCategory) {
         res.status(400).json({ 
           success: false, 
@@ -1129,17 +1132,19 @@ export class AdminController {
         });
         return;
       }
+
       const newCategory = categoryRepository.create({
         name: name.toLowerCase(),
-        description,
-        imageUrl,
-        type,
+        description: description || null,
+        imageUrl: imageUrl || null,
+        type: type || null,
         icon,
         color,
         displayOrder,
         isActive: true,
         propertyCount: 0
       });
+      
       await categoryRepository.save(newCategory);
 
       // Create notification for all users about the new category
@@ -1173,7 +1178,7 @@ export class AdminController {
   static async updateCategory(req: AdminRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const { name, description, imageUrl, type, displayOrder } = req.body;
+      const { name, description, imageUrl, type, displayOrder, icon, color } = req.body;
 
       if (!id) {
         res.status(400).json({ success: false, message: 'Category ID is required' });
@@ -1189,9 +1194,11 @@ export class AdminController {
       }
 
       if (name) category.name = name.toLowerCase();
-      if (description) category.description = description;
-      if (imageUrl) category.imageUrl = imageUrl;
-      if (type) category.type = type;
+      if (description !== undefined) category.description = description;
+      if (imageUrl !== undefined) category.imageUrl = imageUrl;
+      if (type !== undefined) category.type = type;
+      if (icon !== undefined) category.icon = icon;
+      if (color !== undefined) category.color = color;
       if (displayOrder !== undefined) category.displayOrder = displayOrder;
 
       await categoryRepository.save(category);

@@ -18,14 +18,11 @@ router.get('/properties/:propertyId/room-types', contentController.getRoomTypesB
 
 // Property Routes
 router.get('/properties/:id', contentController.getPropertyById);
+
+// Admin Routes
 router.post('/admin/room-types', authenticateAdmin, contentController.createRoomType);
 router.put('/admin/room-types/:id', authenticateAdmin, contentController.updateRoomType);
 router.delete('/admin/room-types/:id', authenticateAdmin, contentController.deleteRoomType);
-
-// Admin Routes
-router.post('/admin/categories', authenticateAdmin, uploadSingle, contentController.createCategory);
-router.put('/admin/categories/:id', authenticateAdmin, uploadSingle, contentController.updateCategory);
-router.delete('/admin/categories/:id', authenticateAdmin, contentController.deleteCategory);
 router.post('/admin/properties', authenticateAdmin, uploadMultiple, contentController.createProperty);
 router.put('/admin/properties/:id', authenticateAdmin, uploadMultiple, contentController.updateProperty);
 router.delete('/admin/properties/:id', authenticateAdmin, contentController.deleteProperty);
