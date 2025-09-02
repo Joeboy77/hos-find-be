@@ -14,7 +14,7 @@ class AddIconColorAndRegionalSections1756743708729 {
         await queryRunner.query(`ALTER TABLE "properties" DROP COLUMN "regionalSectionId"`);
         await queryRunner.query(`ALTER TABLE "categories" DROP COLUMN "color"`);
         await queryRunner.query(`ALTER TABLE "categories" DROP COLUMN "icon"`);
-        await queryRunner.query(`DROP TABLE "regional_sections"`);
+        await queryRunner.query(`DROP TABLE "regional_sections"`); 
     }
 }
 
