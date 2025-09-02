@@ -33,8 +33,8 @@ if (isProduction) {
       }
     },
     entities: [User, Admin, Category, Property, RoomType, Like, Notification],
-    migrations: ['src/migrations/*.ts'],
-    subscribers: ['src/subscribers/*.ts'],
+    migrations: ['dist/migrations/*.js'], // Use compiled JS files in production
+    subscribers: ['dist/subscribers/*.js'], // Use compiled JS files in production
   };
   
   console.log('🔧 [DATABASE] Production mode - Using DATABASE_URL');
@@ -52,8 +52,8 @@ if (isProduction) {
     logging: true,
     ssl: false,
     entities: [User, Admin, Category, Property, RoomType, Like, Notification],
-    migrations: ['src/migrations/*.ts'],
-    subscribers: ['src/subscribers/*.ts'],
+    migrations: ['src/migrations/*.ts'], // Use TypeScript files in development
+    subscribers: ['src/subscribers/*.ts'], // Use TypeScript files in development
   };
   
   console.log('🔧 [DATABASE] Development mode - Using local PostgreSQL');
