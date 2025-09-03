@@ -736,13 +736,13 @@ export class AdminController {
         longitude,
         price,
         currency,
-        propertyType,
         categoryId,
+        regionalSectionId,
         isFeatured,
         displayOrder
       } = req.body;
 
-      if (!name || !description || !mainImageUrl || !location || !city || !region || !price || !propertyType || !categoryId) {
+      if (!name || !description || !mainImageUrl || !location || !city || !region || !price || !categoryId) {
         res.status(400).json({ success: false, message: 'Missing required fields' });
         return;
       }
@@ -760,8 +760,8 @@ export class AdminController {
         longitude,
         price,
         currency,
-        propertyType,
         categoryId,
+        regionalSectionId,
         isFeatured,
         displayOrder,
         status: PropertyStatus.ACTIVE,
@@ -773,8 +773,34 @@ export class AdminController {
       await propertyRepository.save(newProperty);
       const createdProperty = await propertyRepository.findOne({
         where: { id: newProperty.id },
-        relations: ['category']
+        relations: ['category', 'regionalSection']
       });
+
+      // Update regional section property count if property is assigned to one
+      if (regionalSectionId) {
+        try {
+          const regionalSectionRepository = AppDataSource.getRepository(RegionalSection);
+          const regionalSection = await regionalSectionRepository.findOne({
+            where: { id: regionalSectionId }
+          });
+
+          if (regionalSection) {
+            // Count properties assigned to this regional section
+            const propertyCount = await propertyRepository.count({
+              where: { regionalSectionId }
+            });
+            
+            // Update the property count
+            regionalSection.propertyCount = propertyCount;
+            await regionalSectionRepository.save(regionalSection);
+            
+            console.log(`✅ Updated regional section "${regionalSection.name}" property count to ${propertyCount}`);
+          }
+        } catch (error) {
+          console.error('⚠️ Error updating regional section property count:', error);
+          // Don't fail the property creation if regional section update fails
+        }
+      }
 
       // Create notifications for all users about the new property
       try {
@@ -785,7 +811,6 @@ export class AdminController {
           {
             propertyId: newProperty.id,
             propertyName: name,
-            propertyType: propertyType,
             propertyImage: mainImageUrl,
             city: city,
             region: region
