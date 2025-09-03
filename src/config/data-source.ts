@@ -6,7 +6,7 @@ import { Property } from '../models/Property';
 import { RoomType } from '../models/RoomType';
 import { Like } from '../models/Like';
 import { Notification } from '../models/Notification';
-// import { RegionalSection } from '../models/RegionalSection';
+import { RegionalSection } from '../models/RegionalSection';
 import dotenv from 'dotenv';
 dotenv.config();
 

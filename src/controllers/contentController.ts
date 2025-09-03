@@ -752,5 +752,65 @@ export const contentController = {
     } catch (error) {
       next(error);
     }
+  },
+
+  async getRegionalSections(req: Request, res: Response, next: NextFunction) {
+    try {
+      const regionalSectionRepository = AppDataSource.getRepository('RegionalSection');
+      const propertyRepository = AppDataSource.getRepository(Property);
+      
+      // Get all active regional sections
+      const regionalSections = await regionalSectionRepository.find({
+        where: { isActive: true },
+        order: { displayOrder: 'ASC', createdAt: 'DESC' }
+      });
+
+      // For each regional section, get the properties
+      const sectionsWithProperties = await Promise.all(
+        regionalSections.map(async (section) => {
+          const properties = await propertyRepository.find({
+            where: { 
+              regionalSectionId: section.id,
+              isActive: true 
+            },
+            order: { createdAt: 'DESC' },
+            take: 10 // Limit to 10 properties per section
+          });
+
+          return {
+            id: section.id,
+            name: section.name,
+            propertyCount: section.propertyCount,
+            properties: properties.map(property => ({
+              id: property.id,
+              name: property.name,
+              description: property.description,
+              mainImageUrl: property.mainImageUrl,
+              location: property.location,
+              city: property.city,
+              region: property.region,
+              price: property.price,
+              currency: property.currency,
+              rating: property.rating,
+              reviewCount: property.reviewCount,
+              propertyType: property.propertyType,
+              category: property.category ? {
+                id: property.category.id,
+                name: property.category.name,
+                icon: property.category.icon,
+                color: property.category.color
+              } : null
+            }))
+          };
+        })
+      );
+
+      res.json({
+        success: true,
+        data: sectionsWithProperties
+      });
+    } catch (error) {
+      next(error);
+    }
   }
 }; 

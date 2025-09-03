@@ -12,7 +12,7 @@ import { IsNotEmpty, IsUrl, IsNumber, IsPositive, Min, Max } from 'class-validat
 import { Category } from './Category';
 import { RoomType } from './RoomType';
 import { Like } from './Like';
-// import { RegionalSection } from './RegionalSection';
+import { RegionalSection } from './RegionalSection';
 export enum PropertyType {
   HOSTEL = 'hostel',
   HOTEL = 'hotel',
@@ -109,9 +109,9 @@ export class Property {
 
   @Column({ type: 'uuid', nullable: true })
   regionalSectionId: string;
-  // @ManyToOne(() => RegionalSection, regionalSection => regionalSection.properties)
-  // @JoinColumn({ name: 'regionalSectionId' })
-  // regionalSection: RegionalSection;
+  @ManyToOne(() => RegionalSection, regionalSection => regionalSection.properties)
+  @JoinColumn({ name: 'regionalSectionId' })
+  regionalSection: RegionalSection;
 
   @OneToMany(() => RoomType, roomType => roomType.property, { cascade: true })
   roomTypes: RoomType[];
@@ -151,7 +151,7 @@ export class Property {
       categoryId: this.categoryId,
       category: this.category,
       regionalSectionId: this.regionalSectionId,
-      // regionalSection: this.regionalSection,
+      regionalSection: this.regionalSection,
       roomTypes: this.roomTypes?.map(rt => rt.toJSON()) || [],
       likes: this.likes?.map(like => like.toJSON()) || [],
       likeCount: this.likes?.length || 0,

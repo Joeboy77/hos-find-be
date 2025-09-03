@@ -6,7 +6,7 @@ import { Property } from '../models/Property';
 import { RoomType } from '../models/RoomType';
 import { Like } from '../models/Like';
 import { Notification } from '../models/Notification';
-// import { RegionalSection } from '../models/RegionalSection';
+import { RegionalSection } from '../models/RegionalSection';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -32,7 +32,7 @@ if (isProduction) {
         require: true
       }
     },
-    entities: [User, Admin, Category, Property, RoomType, Like, Notification],
+    entities: [User, Admin, Category, Property, RoomType, Like, Notification, RegionalSection],
     migrations: ['dist/migrations/*.js'], // Use compiled JS files in production
     subscribers: ['dist/subscribers/*.js'], // Use compiled JS files in production
   };
@@ -51,7 +51,7 @@ if (isProduction) {
     synchronize: true, // Auto-sync in development
     logging: true,
     ssl: false,
-    entities: [User, Admin, Category, Property, RoomType, Like, Notification],
+    entities: [User, Admin, Category, Property, RoomType, Like, Notification, RegionalSection],
     migrations: ['src/migrations/*.ts'], // Use TypeScript files in development
     subscribers: ['src/subscribers/*.ts'], // Use TypeScript files in development
   };

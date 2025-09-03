@@ -11,6 +11,7 @@ router.get('/properties/region/:region', contentController.getPropertiesByRegion
 router.get('/properties/category/:categoryId', contentController.getPropertiesByCategory);
 router.get('/properties/type/:type', contentController.getPropertiesByType);
 router.get('/properties/search', contentController.searchProperties);
+router.get('/regional-sections', contentController.getRegionalSections);
 
 // Room Type Routes (must come before /properties/:id to avoid conflicts)
 router.get('/room-types/:id', contentController.getRoomTypeById);

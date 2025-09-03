@@ -256,5 +256,45 @@ router.get('/categories-stats', logRequest, authenticateAdmin, requireAdminRole(
 // Test push notification route
 router.post('/test-push-notification', logRequest, authenticateAdmin, requireAdminRole(), AdminController.testPushNotification);
 
+// Regional Sections routes
+router.get('/regional-sections', logRequest, authenticateAdmin, requireAdminRole(), AdminController.getAllRegionalSections);
+router.post('/regional-sections', 
+  logRequest,
+  authenticateAdmin,
+  requireAdminRole(),
+  [
+    body('name').trim().isLength({ min: 2, max: 100 }).withMessage('Regional section name must be between 2 and 100 characters'),
+    body('displayOrder').optional().isInt({ min: 0 }).withMessage('Display order must be a non-negative integer')
+  ],
+  validateRequest,
+  AdminController.createRegionalSection
+);
+router.put('/regional-sections/:id', 
+  logRequest,
+  authenticateAdmin,
+  requireAdminRole(),
+  [
+    body('name').optional().trim().isLength({ min: 2, max: 100 }).withMessage('Regional section name must be between 2 and 100 characters'),
+    body('displayOrder').optional().isInt({ min: 0 }).withMessage('Display order must be a non-negative integer'),
+    body('isActive').optional().isBoolean().withMessage('isActive must be a boolean')
+  ],
+  validateRequest,
+  AdminController.updateRegionalSection
+);
+router.delete('/regional-sections/:id', logRequest, authenticateAdmin, requireAdminRole(), AdminController.deleteRegionalSection);
+
+// Property assignment to regional sections
+router.post('/assign-property-to-regional-section',
+  logRequest,
+  authenticateAdmin,
+  requireAdminRole(),
+  [
+    body('propertyId').isUUID().withMessage('Property ID must be a valid UUID'),
+    body('regionalSectionId').isUUID().withMessage('Regional Section ID must be a valid UUID')
+  ],
+  validateRequest,
+  AdminController.assignPropertyToRegionalSection
+);
+
 console.log('🔧 [ROUTER SETUP] Admin routes setup complete - Login route is PUBLIC, all others require authentication');
 export default router; 

@@ -11,6 +11,7 @@ import { NotificationController } from './notificationController';
 import { PushNotificationService } from '../services/pushNotificationService';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { RegionalSection } from '../models/RegionalSection';
 
 type AdminRequest = Request & {
   admin?: {
@@ -1517,17 +1518,12 @@ export class AdminController {
     }
   }
 
-  // Settings Management Methods
+  // Admin Profile Management
   static async getAdminProfile(req: AdminRequest, res: Response): Promise<void> {
     try {
-      const adminId = req.admin?.id;
-      if (!adminId) {
-        res.status(401).json({ success: false, message: 'Admin not authenticated' });
-        return;
-      }
-
-      const adminRepository = AppDataSource.getRepository(Admin);
-      const admin = await adminRepository.findOne({ where: { id: adminId } });
+      const admin = await AppDataSource.getRepository(Admin).findOne({
+        where: { id: req.admin!.id }
+      });
 
       if (!admin) {
         res.status(404).json({ success: false, message: 'Admin not found' });
@@ -1553,37 +1549,26 @@ export class AdminController {
 
   static async updateAdminProfile(req: AdminRequest, res: Response): Promise<void> {
     try {
-      const adminId = req.admin?.id;
       const { fullName, email, currentPassword, newPassword } = req.body;
-
-      if (!adminId) {
-        res.status(401).json({ success: false, message: 'Admin not authenticated' });
-        return;
-      }
-
       const adminRepository = AppDataSource.getRepository(Admin);
-      const admin = await adminRepository.findOne({ where: { id: adminId } });
+      const admin = await adminRepository.findOne({ where: { id: req.admin!.id } });
 
       if (!admin) {
         res.status(404).json({ success: false, message: 'Admin not found' });
         return;
       }
 
-      // Update basic info
       if (fullName) admin.fullName = fullName;
-      if (email && email !== admin.email) {
-        const existingAdmin = await adminRepository.findOne({ where: { email } });
-        if (existingAdmin) {
-          res.status(409).json({ success: false, message: 'Email already taken' });
+      if (email) admin.email = email.toLowerCase();
+
+      if (newPassword) {
+        if (!currentPassword) {
+          res.status(400).json({ success: false, message: 'Current password is required to set new password' });
           return;
         }
-        admin.email = email;
-      }
 
-      // Update password if provided
-      if (currentPassword && newPassword) {
-        const isPasswordValid = await bcrypt.compare(currentPassword, admin.password);
-        if (!isPasswordValid) {
+        const isCurrentPasswordValid = await bcrypt.compare(currentPassword, admin.password);
+        if (!isCurrentPasswordValid) {
           res.status(400).json({ success: false, message: 'Current password is incorrect' });
           return;
         }
@@ -1616,6 +1601,7 @@ export class AdminController {
     }
   }
 
+  // App Settings Management
   static async getAppSettings(req: AdminRequest, res: Response): Promise<void> {
     try {
       // For now, return default settings. In a real app, these would come from a settings table
@@ -1660,6 +1646,7 @@ export class AdminController {
     }
   }
 
+  // Test Push Notification
   static async testPushNotification(req: AdminRequest, res: Response): Promise<void> {
     try {
       console.log('🧪 [TEST] Testing push notification...');
@@ -1684,4 +1671,197 @@ export class AdminController {
       res.status(500).json({ success: false, message: 'Failed to send test push notification' });
     }
   }
-} 
+
+  // Regional Sections Management
+  static async createRegionalSection(req: Request, res: Response) {
+    try {
+      const { name, displayOrder = 0 } = req.body;
+
+      if (!name) {
+        return res.status(400).json({
+          success: false,
+          message: "Regional section name is required"
+        });
+      }
+
+      const regionalSection = AppDataSource.getRepository(RegionalSection).create({
+        name,
+        displayOrder,
+        propertyCount: 0,
+        isActive: true
+      });
+
+      const savedSection = await AppDataSource.getRepository(RegionalSection).save(regionalSection);
+
+      res.status(201).json({
+        success: true,
+        message: "Regional section created successfully",
+        data: savedSection
+      });
+    } catch (error) {
+      console.error("Error creating regional section:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to create regional section",
+        error: error.message
+      });
+    }
+  }
+
+  static async getAllRegionalSections(req: Request, res: Response) {
+    try {
+      const sections = await AppDataSource.getRepository(RegionalSection)
+        .find({
+          order: { displayOrder: "ASC", createdAt: "DESC" }
+        });
+
+      res.json({
+        success: true,
+        data: sections
+      });
+    } catch (error) {
+      console.error("Error fetching regional sections:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch regional sections",
+        error: error.message
+      });
+    }
+  }
+
+  static async updateRegionalSection(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { name, displayOrder, isActive } = req.body;
+
+      const section = await AppDataSource.getRepository(RegionalSection).findOne({
+        where: { id }
+      });
+
+      if (!section) {
+        return res.status(404).json({
+          success: false,
+          message: "Regional section not found"
+        });
+      }
+
+      if (name) section.name = name;
+      if (displayOrder !== undefined) section.displayOrder = displayOrder;
+      if (isActive !== undefined) section.isActive = isActive;
+
+      const updatedSection = await AppDataSource.getRepository(RegionalSection).save(section);
+
+      res.json({
+        success: true,
+        message: "Regional section updated successfully",
+        data: updatedSection
+      });
+    } catch (error) {
+      console.error("Error updating regional section:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to update regional section",
+        error: error.message
+      });
+    }
+  }
+
+  static async deleteRegionalSection(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+
+      // Check if any properties are using this regional section
+      const propertiesCount = await AppDataSource.getRepository(Property).count({
+        where: { regionalSectionId: id }
+      });
+
+      if (propertiesCount > 0) {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot delete regional section. ${propertiesCount} properties are currently assigned to it.`
+        });
+      }
+
+      const result = await AppDataSource.getRepository(RegionalSection).delete(id);
+
+      if (result.affected === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Regional section not found"
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Regional section deleted successfully"
+      });
+    } catch (error) {
+      console.error("Error deleting regional section:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to delete regional section",
+        error: error.message
+      });
+    }
+  }
+
+  static async assignPropertyToRegionalSection(req: Request, res: Response) {
+    try {
+      const { propertyId, regionalSectionId } = req.body;
+
+      if (!propertyId || !regionalSectionId) {
+        return res.status(400).json({
+          success: false,
+          message: "Property ID and Regional Section ID are required"
+        });
+      }
+
+      const property = await AppDataSource.getRepository(Property).findOne({
+        where: { id: propertyId }
+      });
+
+      if (!property) {
+        return res.status(404).json({
+          success: false,
+          message: "Property not found"
+        });
+      }
+
+      const regionalSection = await AppDataSource.getRepository(RegionalSection).findOne({
+        where: { id: regionalSectionId }
+      });
+
+      if (!regionalSection) {
+        return res.status(404).json({
+          success: false,
+          message: "Regional section not found"
+        });
+      }
+
+      // Update property's regional section
+      property.regionalSectionId = regionalSectionId;
+      await AppDataSource.getRepository(Property).save(property);
+
+      // Update property count in regional section
+      const propertyCount = await AppDataSource.getRepository(Property).count({
+        where: { regionalSectionId }
+      });
+      
+      regionalSection.propertyCount = propertyCount;
+      await AppDataSource.getRepository(RegionalSection).save(regionalSection);
+
+      res.json({
+        success: true,
+        message: "Property assigned to regional section successfully",
+        data: { property, regionalSection }
+      });
+    } catch (error) {
+      console.error("Error assigning property to regional section:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to assign property to regional section",
+        error: error.message
+      });
+    }
+  }
+}
