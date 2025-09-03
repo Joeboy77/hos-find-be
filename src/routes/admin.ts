@@ -258,6 +258,7 @@ router.post('/test-push-notification', logRequest, authenticateAdmin, requireAdm
 
 // Regional Sections routes
 router.get('/regional-sections', logRequest, authenticateAdmin, requireAdminRole(), AdminController.getAllRegionalSections);
+router.get('/regional-sections/:id', logRequest, authenticateAdmin, requireAdminRole(), AdminController.getRegionalSectionById);
 router.post('/regional-sections', 
   logRequest,
   authenticateAdmin,

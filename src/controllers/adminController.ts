@@ -1729,6 +1729,35 @@ export class AdminController {
     }
   }
 
+  static async getRegionalSectionById(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+
+      const regionalSection = await AppDataSource.getRepository(RegionalSection).findOne({
+        where: { id }
+      });
+
+      if (!regionalSection) {
+        return res.status(404).json({
+          success: false,
+          message: "Regional section not found"
+        });
+      }
+
+      res.json({
+        success: true,
+        data: regionalSection
+      });
+    } catch (error) {
+      console.error("Error fetching regional section:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch regional section",
+        error: error.message
+      });
+    }
+  }
+
   static async updateRegionalSection(req: Request, res: Response) {
     try {
       const { id } = req.params;
