@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { AppDataSource } from '../config/database';
 import { Category } from '../models/Category';
 import { Property } from '../models/Property';
-import { PropertyType } from '../models/Property';
+
 
 const initialCategories = [
   {
@@ -58,7 +58,6 @@ const initialProperties = [
     price: 350,
     currency: '₵',
     rating: 4.9,
-    propertyType: PropertyType.HOSTEL,
     isFeatured: true,
     displayOrder: 1,
     roomType: '4 in a room',
@@ -84,7 +83,6 @@ const initialProperties = [
     price: 750,
     currency: '₵',
     rating: 4.8,
-    propertyType: PropertyType.HOTEL,
     isFeatured: true,
     displayOrder: 2,
     roomType: 'Deluxe Suite',
@@ -110,7 +108,6 @@ const initialProperties = [
     price: 280,
     currency: '₵',
     rating: 4.7,
-    propertyType: PropertyType.HOMESTAY,
     isFeatured: true,
     displayOrder: 3,
     roomType: 'Private Room',
@@ -136,7 +133,6 @@ const initialProperties = [
     price: 450,
     currency: '₵',
     rating: 4.6,
-    propertyType: PropertyType.APARTMENT,
     isFeatured: false,
     displayOrder: 4,
     roomType: 'Studio',
@@ -162,7 +158,6 @@ const initialProperties = [
     price: 320,
     currency: '₵',
     rating: 4.5,
-    propertyType: PropertyType.GUESTHOUSE,
     isFeatured: false,
     displayOrder: 5,
     roomType: 'Standard Room',

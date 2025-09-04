@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { AppDataSource } from '../config/database';
-import { Property, PropertyType } from '../models/Property';
+import { Property } from '../models/Property';
 import { RoomType, GenderType } from '../models/RoomType';
 
 async function testRoomTypes() {
@@ -13,7 +13,7 @@ async function testRoomTypes() {
     
     // Get the first hostel property
     const hostelProperty = await propertyRepository.findOne({ 
-      where: { propertyType: PropertyType.HOSTEL } 
+      where: { category: { name: 'Student Hostels' } } 
     });
     
     if (!hostelProperty) {

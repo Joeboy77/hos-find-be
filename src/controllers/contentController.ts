@@ -4,6 +4,7 @@ import { Category } from '../models/Category';
 import { Property } from '../models/Property';
 import { RoomType } from '../models/RoomType';
 import { Like } from '../models/Like';
+import { Like as TypeORMLike } from 'typeorm';
 import { AppError } from '../middleware/errorHandler';
 import cloudinary from '../config/cloudinary';
 import fs from 'fs';
@@ -203,7 +204,6 @@ export const contentController = {
         price: parseFloat(req.body.price),
         currency: req.body.currency || '₵',
         rating: parseFloat(req.body.rating) || 0,
-        propertyType: req.body.propertyType || 'hostel',
         roomType: req.body.roomType,
         imageRoomTypes: req.body.imageRoomTypes ? JSON.parse(req.body.imageRoomTypes) : [],
         isFeatured: req.body.isFeatured === 'true',
@@ -223,7 +223,6 @@ export const contentController = {
           {
             propertyId: property.id,
             propertyName: req.body.name,
-            propertyType: req.body.propertyType || 'hostel',
             propertyImage: property.mainImageUrl,
             city: req.body.city,
             region: req.body.region
@@ -307,7 +306,6 @@ export const contentController = {
       if (req.body.price) property.price = parseFloat(req.body.price);
       if (req.body.currency) property.currency = req.body.currency;
       if (req.body.rating) property.rating = parseFloat(req.body.rating);
-      if (req.body.propertyType) property.propertyType = req.body.propertyType;
       if (req.body.roomType) property.roomType = req.body.roomType;
       if (req.body.imageRoomTypes) property.imageRoomTypes = JSON.parse(req.body.imageRoomTypes);
       if (req.body.status) property.status = req.body.status;
@@ -460,7 +458,6 @@ export const contentController = {
       const { 
         q = '', 
         categoryId = '', 
-        propertyType = '', 
         minPrice = '', 
         maxPrice = '', 
         minRating = '',
@@ -481,9 +478,6 @@ export const contentController = {
       }
       if (categoryId) {
         queryBuilder.andWhere('property.categoryId = :categoryId', { categoryId });
-      }
-      if (propertyType) {
-        queryBuilder.andWhere('property.propertyType = :propertyType', { propertyType });
       }
       if (minPrice) {
         queryBuilder.andWhere('property.price >= :minPrice', { minPrice: parseFloat(minPrice as string) });
@@ -568,8 +562,22 @@ export const contentController = {
       const { type } = req.params;
       const { page = 1, limit = 20 } = req.query;
       const propertyRepository = AppDataSource.getRepository(Property);
+      const categoryRepository = AppDataSource.getRepository(Category);
+      
+      // Find category by name (case-insensitive)
+      const category = await categoryRepository.findOne({
+        where: { name: TypeORMLike(`%${type}%`) }
+      });
+      
+      if (!category) {
+        return res.status(404).json({
+          success: false,
+          message: 'Category not found'
+        });
+      }
+      
       const [properties, total] = await propertyRepository.findAndCount({
-        where: { propertyType: type as any, isActive: true },
+        where: { categoryId: category.id, isActive: true },
         relations: ['category', 'roomTypes'],
         order: { rating: 'DESC', displayOrder: 'ASC' },
         skip: (Number(page) - 1) * Number(limit),
@@ -739,7 +747,6 @@ export const contentController = {
         property: property ? {
           id: property.id,
           name: property.name,
-          propertyType: property.propertyType,
           location: property.location,
           city: property.city
         } : null
@@ -793,7 +800,6 @@ export const contentController = {
               currency: property.currency,
               rating: property.rating,
               reviewCount: property.reviewCount,
-              propertyType: property.propertyType,
               category: property.category ? {
                 id: property.category.id,
                 name: property.category.name,

@@ -13,13 +13,7 @@ import { Category } from './Category';
 import { RoomType } from './RoomType';
 import { Like } from './Like';
 import { RegionalSection } from './RegionalSection';
-export enum PropertyType {
-  HOSTEL = 'hostel',
-  HOTEL = 'hotel',
-  HOMESTAY = 'homestay',
-  APARTMENT = 'apartment',
-  GUESTHOUSE = 'guesthouse'
-}
+
 export enum PropertyStatus {
   ACTIVE = 'active',
   INACTIVE = 'inactive',
@@ -91,8 +85,7 @@ export class Property {
   rating: number;
   @Column({ type: 'int', default: 0 })
   reviewCount: number;
-  @Column({ type: 'enum', enum: PropertyType, default: PropertyType.HOSTEL })
-  propertyType: PropertyType;
+
   @Column({ type: 'enum', enum: PropertyStatus, default: PropertyStatus.ACTIVE })
   status: PropertyStatus;
   @Column({ type: 'boolean', default: true })
@@ -139,7 +132,6 @@ export class Property {
       currency: this.currency,
       rating: this.rating,
       reviewCount: this.reviewCount,
-      propertyType: this.propertyType,
       status: this.status,
       roomType: this.roomType,
       imageRoomTypes: this.imageRoomTypes,

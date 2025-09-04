@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { AppDataSource } from '../config/database';
-import { Property, PropertyType } from '../models/Property';
+import { Property } from '../models/Property';
 import { RoomType, GenderType } from '../models/RoomType';
 
 async function createSampleRoomTypes() {
@@ -23,8 +23,8 @@ async function createSampleRoomTypes() {
 
       const roomTypeDataArray = [];
 
-      // Create different room types based on property type
-      if (property.propertyType === PropertyType.HOSTEL) {
+      // Create different room types based on property category
+      if (property.category?.name?.toLowerCase().includes('hostel')) {
         roomTypeDataArray.push(
           {
             name: '4 in a Room - Male',
@@ -123,7 +123,7 @@ async function createSampleRoomTypes() {
             displayOrder: 6
           }
         );
-      } else if (property.propertyType === PropertyType.HOTEL) {
+      } else if (property.category?.name?.toLowerCase().includes('hotel')) {
         roomTypeDataArray.push(
           {
             name: 'Standard Room',
@@ -174,7 +174,7 @@ async function createSampleRoomTypes() {
             displayOrder: 3
           }
         );
-      } else if (property.propertyType === PropertyType.APARTMENT) {
+      } else if (property.category?.name?.toLowerCase().includes('apartment')) {
         roomTypeDataArray.push(
           {
             name: 'Studio Apartment',

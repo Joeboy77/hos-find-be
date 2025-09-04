@@ -16,7 +16,7 @@ async function seedRoomTypes() {
     for (const property of properties) {
       console.log(`Seeding room types for property: ${property.name}`);
 
-      const roomTypesData = getRoomTypesForProperty(property.propertyType);
+      const roomTypesData = getRoomTypesForProperty(property.category?.name || 'hostel');
 
       for (const roomTypeData of roomTypesData) {
         const existingRoomType = await roomTypeRepository.findOne({

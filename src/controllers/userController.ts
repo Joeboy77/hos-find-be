@@ -3,6 +3,7 @@ import { AppDataSource } from '../config/database';
 import { Property } from '../models/Property';
 import { Category } from '../models/Category';
 import { User } from '../models/User';
+import { Like } from 'typeorm';
 import { AppError } from '../middleware/errorHandler';
 
 type UserRequest = Request & {
@@ -213,13 +214,27 @@ export class UserController {
       const { type } = req.params;
       const { page = 1, limit = 20 } = req.query;
       if (!type) {
-        const error = new Error('Property type is required') as AppError;
+        const error = new Error('Category name is required') as AppError;
         error.statusCode = 400;
         return next(error);
       }
       const propertyRepository = AppDataSource.getRepository(Property);
+      const categoryRepository = AppDataSource.getRepository(Category);
+      
+      // Find category by name (case-insensitive)
+      const category = await categoryRepository.findOne({
+        where: { name: Like(`%${type}%`) }
+      });
+      
+      if (!category) {
+        return res.status(404).json({
+          success: false,
+          message: 'Category not found'
+        });
+      }
+      
       const [properties, total] = await propertyRepository.findAndCount({
-        where: { propertyType: type as any, isActive: true },
+        where: { categoryId: category.id, isActive: true },
         relations: ['category'],
         order: { rating: 'DESC', displayOrder: 'ASC' },
         skip: (Number(page) - 1) * Number(limit),

@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { AppDataSource } from '../config/database';
-import { Property, PropertyType, PropertyStatus } from '../models/Property';
+import { Property, PropertyStatus } from '../models/Property';
 
 async function updateProperties() {
   try {

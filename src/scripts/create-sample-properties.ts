@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { AppDataSource } from '../config/database';
-import { Property, PropertyType, PropertyStatus } from '../models/Property';
+import { Property, PropertyStatus } from '../models/Property';
 import { Category } from '../models/Category';
 async function createSampleProperties() {
   try {
@@ -49,7 +49,7 @@ async function createSampleProperties() {
         currency: '₵',
         rating: 4.6,
         reviewCount: 45,
-        propertyType: PropertyType.HOSTEL,
+
         status: PropertyStatus.ACTIVE,
         isFeatured: true,
         roomType: '4 in a room',
@@ -78,7 +78,7 @@ async function createSampleProperties() {
         currency: '₵',
         rating: 4.5,
         reviewCount: 32,
-        propertyType: PropertyType.HOSTEL,
+
         status: PropertyStatus.ACTIVE,
         isFeatured: false,
         roomType: '2 in a room',
@@ -107,7 +107,7 @@ async function createSampleProperties() {
         currency: '₵',
         rating: 4.8,
         reviewCount: 128,
-        propertyType: PropertyType.HOTEL,
+
         status: PropertyStatus.ACTIVE,
         isFeatured: true,
         roomType: 'Deluxe Suite',
@@ -136,7 +136,7 @@ async function createSampleProperties() {
         currency: '₵',
         rating: 4.3,
         reviewCount: 67,
-        propertyType: PropertyType.HOTEL,
+
         status: PropertyStatus.ACTIVE,
         isFeatured: false,
         roomType: 'Standard Room',
@@ -165,7 +165,7 @@ async function createSampleProperties() {
         currency: '₵',
         rating: 4.7,
         reviewCount: 23,
-        propertyType: PropertyType.HOMESTAY,
+
         status: PropertyStatus.ACTIVE,
         isFeatured: true,
         roomType: 'Private Room',
@@ -194,7 +194,7 @@ async function createSampleProperties() {
         currency: '₵',
         rating: 4.4,
         reviewCount: 18,
-        propertyType: PropertyType.GUESTHOUSE,
+
         status: PropertyStatus.ACTIVE,
         isFeatured: false,
         roomType: 'Ocean View Room',
@@ -223,7 +223,7 @@ async function createSampleProperties() {
         currency: '₵',
         rating: 4.6,
         reviewCount: 89,
-        propertyType: PropertyType.APARTMENT,
+
         status: PropertyStatus.ACTIVE,
         isFeatured: true,
         roomType: 'Studio Apartment',
@@ -243,7 +243,7 @@ async function createSampleProperties() {
       if (!existingProperty) {
         const property = propertyRepository.create(propData);
         await propertyRepository.save(property);
-        console.log(`✅ Created property: ${property.name} (${property.propertyType})`);
+        console.log(`✅ Created property: ${property.name}`);
       } else {
         console.log(`⏭️ Property already exists: ${propData.name}`);
       }
