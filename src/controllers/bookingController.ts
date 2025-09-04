@@ -129,6 +129,7 @@ export class BookingController {
   static async getUserBookings(req: Request, res: Response) {
     try {
       const { userId } = req.params;
+      console.log(`[BOOKING CONTROLLER] Fetching bookings for user: ${userId}`);
 
       const bookingRepository = AppDataSource.getRepository(Booking);
       const bookings = await bookingRepository.find({
@@ -136,6 +137,15 @@ export class BookingController {
         relations: ['property', 'roomType'],
         order: { createdAt: 'DESC' },
       });
+
+      console.log(`[BOOKING CONTROLLER] Found ${bookings.length} bookings`);
+      console.log(`[BOOKING CONTROLLER] Sample booking:`, bookings[0] ? {
+        id: bookings[0].id,
+        hasProperty: !!bookings[0].property,
+        hasRoomType: !!bookings[0].roomType,
+        propertyName: bookings[0].property?.name,
+        roomTypeName: bookings[0].roomType?.name
+      } : 'No bookings');
 
       res.json({
         success: true,
