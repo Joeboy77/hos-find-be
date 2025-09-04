@@ -24,14 +24,12 @@ export class BookingController {
         propertyId, 
         roomTypeId, 
         checkInDate, 
-        checkOutDate, 
         guests = 1,
         specialRequests 
       } = req.body;
 
       // Validate dates
       const checkIn = new Date(checkInDate);
-      const checkOut = new Date(checkOutDate);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
@@ -42,12 +40,7 @@ export class BookingController {
         });
       }
 
-      if (checkOut <= checkIn) {
-        return res.status(400).json({
-          success: false,
-          message: 'Check-out date must be after check-in date',
-        });
-      }
+      // We no longer collect/require check-out; treat as same-day booking
 
       // Get repositories
       const bookingRepository = AppDataSource.getRepository(Booking);
@@ -104,8 +97,7 @@ export class BookingController {
       }
 
       // Calculate total amount (for now, just room price per night)
-      const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-      const totalAmount = roomType.price * nights;
+      const totalAmount = roomType.price; // flat price for same-day move-in
 
       // Create booking
       const booking = new Booking();
@@ -113,7 +105,7 @@ export class BookingController {
       booking.propertyId = propertyId;
       booking.roomTypeId = roomTypeId;
       booking.checkInDate = checkInDate;
-      booking.checkOutDate = checkOutDate;
+      // checkout removed
       booking.guests = guests;
       booking.totalAmount = totalAmount;
       booking.currency = roomType.currency || 'GHS';

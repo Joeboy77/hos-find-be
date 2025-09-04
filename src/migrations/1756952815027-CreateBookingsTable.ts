@@ -10,7 +10,7 @@ export class CreateBookingsTable1756952815027 implements MigrationInterface {
                 "propertyId" uuid NOT NULL,
                 "roomTypeId" uuid NOT NULL,
                 "checkInDate" date NOT NULL,
-                "checkOutDate" date NOT NULL,
+                "checkOutDate" date,
                 "guests" integer NOT NULL DEFAULT '1',
                 "totalAmount" numeric(10,2) NOT NULL,
                 "currency" character varying(3) NOT NULL DEFAULT 'GHS',

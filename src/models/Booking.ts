@@ -27,8 +27,8 @@ export class Booking {
   @Column({ type: 'date' })
   checkInDate: string;
 
-  @Column({ type: 'date' })
-  checkOutDate: string;
+  @Column({ type: 'date', nullable: true })
+  checkOutDate: string | null;
 
   @Column({ type: 'int', default: 1 })
   guests: number;
