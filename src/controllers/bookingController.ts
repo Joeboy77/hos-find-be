@@ -138,6 +138,31 @@ export class BookingController {
         order: { createdAt: 'DESC' },
       });
 
+      // If relations are not loaded, try a different approach
+      if (bookings.length > 0 && !bookings[0].property) {
+        console.log('[BOOKING CONTROLLER] Relations not loaded, trying query builder approach');
+        const bookingsWithRelations = await bookingRepository
+          .createQueryBuilder('booking')
+          .leftJoinAndSelect('booking.property', 'property')
+          .leftJoinAndSelect('booking.roomType', 'roomType')
+          .where('booking.userId = :userId', { userId })
+          .orderBy('booking.createdAt', 'DESC')
+          .getMany();
+        
+        console.log('[BOOKING CONTROLLER] Query builder result:', bookingsWithRelations[0] ? {
+          id: bookingsWithRelations[0].id,
+          hasProperty: !!bookingsWithRelations[0].property,
+          hasRoomType: !!bookingsWithRelations[0].roomType,
+          propertyName: bookingsWithRelations[0].property?.name,
+          roomTypeName: bookingsWithRelations[0].roomType?.name
+        } : 'No bookings');
+        
+        return res.json({
+          success: true,
+          data: bookingsWithRelations,
+        });
+      }
+
       console.log(`[BOOKING CONTROLLER] Found ${bookings.length} bookings`);
       console.log(`[BOOKING CONTROLLER] Sample booking:`, bookings[0] ? {
         id: bookings[0].id,
