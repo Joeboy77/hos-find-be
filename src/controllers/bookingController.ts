@@ -311,4 +311,119 @@ export class BookingController {
       });
     }
   }
+
+  // Get all bookings for admin
+  static async getAllBookings(req: Request, res: Response) {
+    try {
+      const { 
+        page = 1, 
+        limit = 10, 
+        status, 
+        propertyId, 
+        search,
+        sortBy = 'createdAt',
+        sortOrder = 'DESC'
+      } = req.query;
+
+      const bookingRepository = AppDataSource.getRepository(Booking);
+      const queryBuilder = bookingRepository
+        .createQueryBuilder('booking')
+        .leftJoinAndSelect('booking.property', 'property')
+        .leftJoinAndSelect('booking.roomType', 'roomType')
+        .leftJoinAndSelect('booking.user', 'user');
+
+      // Apply filters
+      if (status) {
+        queryBuilder.andWhere('booking.status = :status', { status });
+      }
+
+      if (propertyId) {
+        queryBuilder.andWhere('booking.propertyId = :propertyId', { propertyId });
+      }
+
+      if (search) {
+        queryBuilder.andWhere(
+          '(property.name ILIKE :search OR user.fullName ILIKE :search OR user.email ILIKE :search)',
+          { search: `%${search}%` }
+        );
+      }
+
+      // Apply sorting
+      const validSortFields = ['createdAt', 'checkInDate', 'totalAmount', 'status'];
+      const sortField = validSortFields.includes(sortBy as string) ? sortBy : 'createdAt';
+      const order = sortOrder === 'ASC' ? 'ASC' : 'DESC';
+      
+      queryBuilder.orderBy(`booking.${sortField}`, order);
+
+      // Apply pagination
+      const offset = (Number(page) - 1) * Number(limit);
+      queryBuilder.skip(offset).take(Number(limit));
+
+      const [bookings, total] = await queryBuilder.getManyAndCount();
+
+      return res.json({
+        success: true,
+        data: {
+          bookings,
+          pagination: {
+            page: Number(page),
+            limit: Number(limit),
+            total,
+            totalPages: Math.ceil(total / Number(limit)),
+          },
+        },
+      });
+    } catch (error) {
+      console.error('[BOOKING CONTROLLER] Error fetching all bookings:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch bookings',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  // Get booking statistics for admin dashboard
+  static async getBookingStats(req: Request, res: Response) {
+    try {
+      const bookingRepository = AppDataSource.getRepository(Booking);
+      
+      const [
+        totalBookings,
+        confirmedBookings,
+        pendingBookings,
+        cancelledBookings,
+        totalRevenue
+      ] = await Promise.all([
+        bookingRepository.count(),
+        bookingRepository.count({ where: { status: BookingStatus.CONFIRMED } }),
+        bookingRepository.count({ where: { status: BookingStatus.PENDING } }),
+        bookingRepository.count({ where: { status: BookingStatus.CANCELLED } }),
+        bookingRepository
+          .createQueryBuilder('booking')
+          .select('SUM(CAST(booking.totalAmount AS DECIMAL))', 'total')
+          .where('booking.status = :status', { status: BookingStatus.CONFIRMED })
+          .getRawOne()
+      ]);
+
+      return res.json({
+        success: true,
+        data: {
+          totalBookings,
+          confirmedBookings,
+          pendingBookings,
+          cancelledBookings,
+          totalRevenue: totalRevenue?.total || '0',
+        },
+      });
+    } catch (error) {
+      console.error('[BOOKING CONTROLLER] Error fetching booking stats:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch booking statistics',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
 }

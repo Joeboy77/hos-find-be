@@ -8,6 +8,7 @@ declare global {
         id: string;
         email: string;
         phoneNumber: string;
+        role?: string;
       };
     }
   }
@@ -25,6 +26,37 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
       req.user = decoded;
+      next();
+    } catch (error) {
+      const errorObj = new Error('Invalid or expired access token') as AppError;
+      errorObj.statusCode = 401;
+      return next(errorObj);
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const authenticateAdmin = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      const error = new Error('Access token is required') as AppError;
+      error.statusCode = 401;
+      return next(error);
+    }
+    const token = authHeader.substring(7);
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+      req.user = decoded;
+      
+      // Check if user is admin (you can modify this logic based on your admin role system)
+      if (req.user.role !== 'admin') {
+        const error = new Error('Admin access required') as AppError;
+        error.statusCode = 403;
+        return next(error);
+      }
+      
       next();
     } catch (error) {
       const errorObj = new Error('Invalid or expired access token') as AppError;

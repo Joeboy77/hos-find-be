@@ -1,7 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { body } from 'express-validator';
 import { BookingController } from '../controllers/bookingController';
-import { authenticateUser } from '../middleware/auth';
+import { authenticateUser, authenticateAdmin } from '../middleware/auth';
 
 const logRequest = (req: Request, res: Response, next: NextFunction): void => {
   console.log(`📝 [BOOKING] ${req.method} ${req.originalUrl}`);
@@ -31,5 +31,10 @@ router.get('/user/:userId', logRequest, authenticateUser, BookingController.getU
 router.get('/:id', logRequest, authenticateUser, BookingController.getBookingById);
 router.patch('/:id/status', logRequest, authenticateUser, updateBookingStatusValidation, BookingController.updateBookingStatus);
 router.patch('/:id/cancel', logRequest, authenticateUser, BookingController.cancelBooking);
+
+// Admin routes
+router.get('/admin/all', logRequest, authenticateAdmin, BookingController.getAllBookings);
+router.get('/admin/stats', logRequest, authenticateAdmin, BookingController.getBookingStats);
+router.patch('/admin/:bookingId/status', logRequest, authenticateAdmin, updateBookingStatusValidation, BookingController.updateBookingStatus);
 
 export default router;
