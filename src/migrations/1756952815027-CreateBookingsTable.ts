@@ -11,11 +11,11 @@ export class CreateBookingsTable1756952815027 implements MigrationInterface {
                 "roomTypeId" uuid NOT NULL,
                 "checkInDate" date NOT NULL,
                 "checkOutDate" date,
-                "guests" integer NOT NULL DEFAULT '1',
+                -- guests removed
                 "totalAmount" numeric(10,2) NOT NULL,
                 "currency" character varying(3) NOT NULL DEFAULT 'GHS',
                 "status" character varying NOT NULL DEFAULT 'pending',
-                "specialRequests" text,
+                -- specialRequests removed
                 "paymentReference" text,
                 "isPaid" boolean NOT NULL DEFAULT false,
                 "createdAt" TIMESTAMP NOT NULL DEFAULT now(),

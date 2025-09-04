@@ -23,9 +23,7 @@ export class BookingController {
         userId, 
         propertyId, 
         roomTypeId, 
-        checkInDate, 
-        guests = 1,
-        specialRequests 
+        checkInDate 
       } = req.body;
 
       // Validate dates
@@ -88,13 +86,7 @@ export class BookingController {
         });
       }
 
-      // Check capacity
-      if (guests > roomType.capacity) {
-        return res.status(400).json({
-          success: false,
-          message: `This room type can only accommodate ${roomType.capacity} guests`,
-        });
-      }
+      // Capacity check removed - no longer tracking guests
 
       // Calculate total amount (for now, just room price per night)
       const totalAmount = roomType.price; // flat price for same-day move-in
@@ -105,12 +97,10 @@ export class BookingController {
       booking.propertyId = propertyId;
       booking.roomTypeId = roomTypeId;
       booking.checkInDate = checkInDate;
-      // checkout removed
-      booking.guests = guests;
+      // checkout, guests, and specialRequests removed
       booking.totalAmount = totalAmount;
       booking.currency = roomType.currency || 'GHS';
       booking.status = BookingStatus.PENDING;
-      booking.specialRequests = specialRequests;
 
       const savedBooking = await bookingRepository.save(booking);
 

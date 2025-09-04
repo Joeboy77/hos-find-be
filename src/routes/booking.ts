@@ -16,9 +16,7 @@ const createBookingValidation = [
   body('propertyId').isUUID().withMessage('Valid property ID is required'),
   body('roomTypeId').isUUID().withMessage('Valid room type ID is required'),
   body('checkInDate').isISO8601().withMessage('Valid check-in date is required'),
-  // checkOutDate removed (no longer required)
-  body('guests').optional().isInt({ min: 1, max: 10 }).withMessage('Guests must be between 1 and 10'),
-  body('specialRequests').optional().isString().withMessage('Special requests must be a string'),
+  // checkOutDate, guests, and specialRequests removed (no longer required)
 ];
 
 // Validation middleware for updating booking status

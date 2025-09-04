@@ -30,8 +30,7 @@ export class Booking {
   @Column({ type: 'date', nullable: true })
   checkOutDate: string | null;
 
-  @Column({ type: 'int', default: 1 })
-  guests: number;
+  // guests removed - no longer tracking
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   totalAmount: number;
@@ -46,8 +45,7 @@ export class Booking {
   })
   status: BookingStatus;
 
-  @Column({ type: 'text', nullable: true })
-  specialRequests: string;
+  // specialRequests removed - no longer tracking
 
   @Column({ type: 'text', nullable: true })
   paymentReference: string;
@@ -82,11 +80,10 @@ export class Booking {
       roomTypeId: this.roomTypeId,
       checkInDate: this.checkInDate,
       checkOutDate: this.checkOutDate,
-      guests: this.guests,
+      // guests and specialRequests removed
       totalAmount: this.totalAmount,
       currency: this.currency,
       status: this.status,
-      specialRequests: this.specialRequests,
       paymentReference: this.paymentReference,
       isPaid: this.isPaid,
       createdAt: this.createdAt,
