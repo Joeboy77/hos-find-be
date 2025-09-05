@@ -88,8 +88,10 @@ export class BookingController {
 
       // Capacity check removed - no longer tracking guests
 
-      // Calculate total amount (for now, just room price per night)
-      const totalAmount = roomType.price; // flat price for same-day move-in
+      // Calculate total amount with 5% service charge
+      const roomPrice = roomType.price;
+      const serviceCharge = roomPrice * 0.05; // 5% service charge
+      const totalAmount = roomPrice + serviceCharge;
 
       // Create booking
       const booking = new Booking();
