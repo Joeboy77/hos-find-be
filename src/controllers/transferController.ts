@@ -45,12 +45,12 @@ export const getAllTransfers = async (req: Request, res: Response) => {
     res.json({
       success: true,
       data: {
-        transfers,
+        transfers: transfers || [],
         pagination: {
           page: Number(page),
           limit: Number(limit),
-          total,
-          pages: Math.ceil(total / Number(limit)),
+          total: total || 0,
+          pages: Math.ceil((total || 0) / Number(limit)),
         },
       },
     });
@@ -88,10 +88,10 @@ export const getTransferStats = async (req: Request, res: Response) => {
     res.json({
       success: true,
       data: {
-        totalTransfers,
-        successfulTransfers,
-        pendingTransfers,
-        failedTransfers,
+        totalTransfers: totalTransfers || 0,
+        successfulTransfers: successfulTransfers || 0,
+        pendingTransfers: pendingTransfers || 0,
+        failedTransfers: failedTransfers || 0,
         totalAmount: parseFloat(totalAmountResult?.totalAmount || '0'),
         totalFees: parseFloat(totalFeesResult?.totalFees || '0'),
       },
