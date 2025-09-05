@@ -3,6 +3,7 @@ import { AdminController } from '../controllers/adminController';
 import { authenticateAdmin, requireAdminRole } from '../middleware/adminAuth';
 import { body } from 'express-validator';
 import { validateRequest } from '../middleware/validateRequest';
+import * as TransferController from '../controllers/transferController';
 const router = Router();
 const logRequest = (req: Request, res: Response, next: NextFunction): void => {
   console.log('🚀 [ROUTE] Request to:', req.method, req.originalUrl);
@@ -295,6 +296,29 @@ router.post('/assign-property-to-regional-section',
   validateRequest,
   AdminController.assignPropertyToRegionalSection
 );
+
+// Transfer routes
+router.get('/transfers', logRequest, authenticateAdmin, requireAdminRole(), TransferController.getAllTransfers);
+router.get('/transfers/stats', logRequest, authenticateAdmin, requireAdminRole(), TransferController.getTransferStats);
+router.get('/transfers/:id', logRequest, authenticateAdmin, requireAdminRole(), TransferController.getTransferById);
+router.post('/transfers',
+  logRequest,
+  authenticateAdmin,
+  requireAdminRole(),
+  [
+    body('amount').isFloat({ min: 0.01 }).withMessage('Amount must be greater than 0'),
+    body('currency').optional().isLength({ min: 3, max: 3 }).withMessage('Currency must be 3 characters'),
+    body('transferType').isIn(['bank_account', 'mobile_money', 'paystack_account']).withMessage('Invalid transfer type'),
+    body('recipientType').isIn(['user', 'external']).withMessage('Invalid recipient type'),
+    body('recipientName').trim().isLength({ min: 2, max: 100 }).withMessage('Recipient name must be between 2 and 100 characters'),
+    body('recipientEmail').isEmail().withMessage('Valid email is required'),
+    body('recipientPhone').optional().isMobilePhone('any').withMessage('Invalid phone number'),
+    body('reason').optional().trim().isLength({ max: 500 }).withMessage('Reason must not exceed 500 characters')
+  ],
+  validateRequest,
+  TransferController.createTransfer
+);
+router.patch('/transfers/:id/cancel', logRequest, authenticateAdmin, requireAdminRole(), TransferController.cancelTransfer);
 
 console.log('🔧 [ROUTER SETUP] Admin routes setup complete - Login route is PUBLIC, all others require authentication');
 export default router; 
