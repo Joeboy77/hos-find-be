@@ -88,6 +88,26 @@ export class Booking {
       isPaid: this.isPaid,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
+      // Include relations if they exist
+      user: this.user ? {
+        id: this.user.id,
+        fullName: this.user.fullName,
+        email: this.user.email,
+        phoneNumber: this.user.phoneNumber,
+      } : undefined,
+      property: this.property ? {
+        id: this.property.id,
+        name: this.property.name,
+        location: this.property.location,
+        city: this.property.city,
+      } : undefined,
+      roomType: this.roomType ? {
+        id: this.roomType.id,
+        name: this.roomType.name,
+        price: this.roomType.price,
+        currency: this.roomType.currency,
+        capacity: this.roomType.capacity,
+      } : undefined,
     };
   }
 }
