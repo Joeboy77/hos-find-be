@@ -25,6 +25,15 @@ export enum RoomTypeCategory {
   GUESTHOUSE = 'guesthouse'
 }
 
+export enum BillingPeriod {
+  PER_NIGHT = 'per_night',
+  PER_DAY = 'per_day',
+  PER_WEEK = 'per_week',
+  PER_MONTH = 'per_month',
+  PER_SEMESTER = 'per_semester',
+  PER_YEAR = 'per_year'
+}
+
 @Entity('room_types')
 export class RoomType {
   @PrimaryGeneratedColumn('uuid')
@@ -44,6 +53,10 @@ export class RoomType {
 
   @Column({ type: 'varchar', length: 10, default: '₵' })
   currency: string;
+
+  @Column({ type: 'enum', enum: BillingPeriod, default: BillingPeriod.PER_NIGHT })
+  @IsEnum(BillingPeriod, { message: 'Invalid billing period' })
+  billingPeriod: BillingPeriod;
 
   @Column({ type: 'enum', enum: GenderType, default: GenderType.ANY })
   @IsEnum(GenderType, { message: 'Invalid gender type' })
@@ -99,6 +112,7 @@ export class RoomType {
       description: this.description,
       price: this.price,
       currency: this.currency,
+      billingPeriod: this.billingPeriod,
       genderType: this.genderType,
       capacity: this.capacity,
       roomTypeCategory: this.roomTypeCategory,
