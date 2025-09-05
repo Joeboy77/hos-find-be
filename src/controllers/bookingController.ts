@@ -86,6 +86,14 @@ export class BookingController {
         });
       }
 
+      // Check room availability (prevent overbooking)
+      if (roomType.availableRooms <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'No rooms available for this room type',
+        });
+      }
+
       // Capacity check removed - no longer tracking guests
 
       // Calculate total amount with 5% service charge
@@ -105,6 +113,10 @@ export class BookingController {
       booking.status = BookingStatus.PENDING;
 
       const savedBooking = await bookingRepository.save(booking);
+
+      // Decrement available rooms count after successful booking
+      roomType.availableRooms = roomType.availableRooms - 1;
+      await roomTypeRepository.save(roomType);
 
       // Return booking with populated relations
       const bookingWithRelations = await bookingRepository.findOne({
@@ -298,6 +310,16 @@ export class BookingController {
 
       booking.status = BookingStatus.CANCELLED;
       const updatedBooking = await bookingRepository.save(booking);
+
+      // Increment available rooms count when booking is cancelled
+      const roomTypeRepository = AppDataSource.getRepository(RoomType);
+      const roomType = await roomTypeRepository.findOne({ 
+        where: { id: booking.roomTypeId } 
+      });
+      if (roomType) {
+        roomType.availableRooms = roomType.availableRooms + 1;
+        await roomTypeRepository.save(roomType);
+      }
 
       res.json({
         success: true,
