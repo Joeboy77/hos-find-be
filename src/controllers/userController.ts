@@ -341,6 +341,10 @@ export class UserController {
         error.statusCode = 401;
         return next(error);
       }
+      console.log('🛠️ [USER UPDATE] Start', {
+        userId: req.user.id,
+        body: req.body
+      });
       const userRepository = AppDataSource.getRepository(User);
       const user = await userRepository.findOne({
         where: { id: req.user.id }
@@ -357,6 +361,7 @@ export class UserController {
           updates[field] = req.body[field];
         }
       });
+      console.log('🧱 [USER UPDATE] Allowed field updates', updates);
       if (req.body.email && req.body.email !== user.email) {
         const existingUser = await userRepository.findOne({
           where: { email: req.body.email }
@@ -367,6 +372,7 @@ export class UserController {
           return next(error);
         }
         updates.email = req.body.email;
+        console.log('📧 [USER UPDATE] Queued email change');
       }
       if (req.body.phoneNumber && req.body.phoneNumber !== user.phoneNumber) {
         const existingUser = await userRepository.findOne({
@@ -378,6 +384,7 @@ export class UserController {
           return next(error);
         }
         updates.phoneNumber = req.body.phoneNumber;
+        console.log('📱 [USER UPDATE] Queued phoneNumber change');
       }
       if (req.body.password) {
         if (req.body.password.length < 6) {
@@ -386,11 +393,15 @@ export class UserController {
           return next(error);
         }
         updates.password = req.body.password;
+        console.log('🔐 [USER UPDATE] Queued password change');
       }
-      await userRepository.update(req.user.id, updates);
+      console.log('🚀 [USER UPDATE] Performing update', { userId: req.user.id, updates });
+      const updateResult = await userRepository.update(req.user.id, updates);
+      console.log('✅ [USER UPDATE] Update result', updateResult);
       const updatedUser = await userRepository.findOne({
         where: { id: req.user.id }
       });
+      console.log('📦 [USER UPDATE] Updated user payload', updatedUser?.toPublicJSON());
       res.json({
         success: true,
         message: 'Profile updated successfully',
@@ -399,6 +410,7 @@ export class UserController {
         }
       });
     } catch (error) {
+      console.error('❌ [USER UPDATE] Error', error);
       next(error);
     }
   }
