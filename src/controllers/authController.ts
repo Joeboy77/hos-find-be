@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { AppDataSource } from '../config/database';
 import { User } from '../models/User';
 import { AppError } from '../middleware/errorHandler';
+import emailService from '../services/emailService';
 const generateTokens = (user: User) => {
   const accessToken = jwt.sign(
     {
@@ -23,6 +24,10 @@ const generateTokens = (user: User) => {
   );
   return { accessToken, refreshToken };
 };
+
+const generateVerificationCode = (): string => {
+  return Math.floor(1000 + Math.random() * 9000).toString();
+};
 export const authController = {
   async signup(req: Request, res: Response, next: NextFunction) {
     try {
@@ -38,27 +43,42 @@ export const authController = {
         error.statusCode = 409;
         return next(error);
       }
+
+      // Generate verification code
+      const verificationCode = generateVerificationCode();
+      const verificationCodeExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
       const user = userRepository.create({
         fullName: req.body.fullName,
         email: req.body.email,
         password: req.body.password,
         phoneNumber: req.body.phoneNumber,
-        location: req.body.location
+        location: req.body.location,
+        emailVerificationCode: verificationCode,
+        emailVerificationCodeExpiresAt: verificationCodeExpiresAt,
+        isEmailVerified: false
       });
       await userRepository.save(user);
-      const { accessToken, refreshToken } = generateTokens(user);
-      user.refreshToken = refreshToken;
-      user.refreshTokenExpiresAt = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000);
-      await userRepository.save(user);
+
+      // Send verification email
+      const emailSent = await emailService.sendVerificationEmail({
+        email: user.email,
+        fullName: user.fullName,
+        verificationCode: verificationCode
+      });
+
+      if (!emailSent) {
+        console.error('Failed to send verification email for user:', user.email);
+        // Don't fail the signup, just log the error
+      }
+
       res.status(201).json({
         success: true,
-        message: 'User created successfully',
+        message: 'User created successfully. Please check your email for verification code.',
         data: {
-          user: user.toPublicJSON(),
-          tokens: {
-            accessToken,
-            refreshToken
-          }
+          userId: user.id,
+          email: user.email,
+          requiresVerification: true
         }
       });
     } catch (error) {
@@ -166,6 +186,135 @@ export const authController = {
       res.json({
         success: true,
         message: 'Logout successful'
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+  async verifyEmail(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email, verificationCode } = req.body;
+      
+      if (!email || !verificationCode) {
+        const error = new Error('Email and verification code are required') as AppError;
+        error.statusCode = 400;
+        return next(error);
+      }
+
+      const userRepository = AppDataSource.getRepository(User);
+      const user = await userRepository.findOne({
+        where: { email }
+      });
+
+      if (!user) {
+        const error = new Error('User not found') as AppError;
+        error.statusCode = 404;
+        return next(error);
+      }
+
+      if (user.isEmailVerified) {
+        const error = new Error('Email is already verified') as AppError;
+        error.statusCode = 400;
+        return next(error);
+      }
+
+      if (!user.emailVerificationCode || !user.emailVerificationCodeExpiresAt) {
+        const error = new Error('No verification code found. Please request a new one.') as AppError;
+        error.statusCode = 400;
+        return next(error);
+      }
+
+      if (user.emailVerificationCodeExpiresAt < new Date()) {
+        const error = new Error('Verification code has expired. Please request a new one.') as AppError;
+        error.statusCode = 400;
+        return next(error);
+      }
+
+      if (user.emailVerificationCode !== verificationCode) {
+        const error = new Error('Invalid verification code') as AppError;
+        error.statusCode = 400;
+        return next(error);
+      }
+
+      // Verify the email
+      user.isEmailVerified = true;
+      user.emailVerificationCode = null;
+      user.emailVerificationCodeExpiresAt = null;
+      await userRepository.save(user);
+
+      // Generate tokens for the verified user
+      const { accessToken, refreshToken } = generateTokens(user);
+      user.refreshToken = refreshToken;
+      user.refreshTokenExpiresAt = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000);
+      await userRepository.save(user);
+
+      res.json({
+        success: true,
+        message: 'Email verified successfully',
+        data: {
+          user: user.toPublicJSON(),
+          tokens: {
+            accessToken,
+            refreshToken
+          }
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+  async resendVerificationCode(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        const error = new Error('Email is required') as AppError;
+        error.statusCode = 400;
+        return next(error);
+      }
+
+      const userRepository = AppDataSource.getRepository(User);
+      const user = await userRepository.findOne({
+        where: { email }
+      });
+
+      if (!user) {
+        const error = new Error('User not found') as AppError;
+        error.statusCode = 404;
+        return next(error);
+      }
+
+      if (user.isEmailVerified) {
+        const error = new Error('Email is already verified') as AppError;
+        error.statusCode = 400;
+        return next(error);
+      }
+
+      // Generate new verification code
+      const verificationCode = generateVerificationCode();
+      const verificationCodeExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+      user.emailVerificationCode = verificationCode;
+      user.emailVerificationCodeExpiresAt = verificationCodeExpiresAt;
+      await userRepository.save(user);
+
+      // Send verification email
+      const emailSent = await emailService.sendVerificationEmail({
+        email: user.email,
+        fullName: user.fullName,
+        verificationCode: verificationCode
+      });
+
+      if (!emailSent) {
+        console.error('Failed to resend verification email for user:', user.email);
+        const error = new Error('Failed to send verification email') as AppError;
+        error.statusCode = 500;
+        return next(error);
+      }
+
+      res.json({
+        success: true,
+        message: 'Verification code sent successfully'
       });
     } catch (error) {
       next(error);

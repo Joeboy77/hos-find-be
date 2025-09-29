@@ -63,6 +63,12 @@ export class User {
   @Column({ type: 'varchar', length: 255, nullable: true })
   pushToken: string | null;
 
+  @Column({ type: 'varchar', length: 4, nullable: true })
+  emailVerificationCode: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  emailVerificationCodeExpiresAt: Date | null;
+
   @OneToMany(() => Like, like => like.user, { cascade: true })
   likes: Like[];
 

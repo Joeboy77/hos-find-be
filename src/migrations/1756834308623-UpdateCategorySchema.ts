@@ -5,6 +5,9 @@ class UpdateCategorySchema1756834308623 {
         await queryRunner.query(`ALTER TABLE "categories" ALTER COLUMN "imageUrl" DROP NOT NULL`);
         await queryRunner.query(`ALTER TABLE "categories" ALTER COLUMN "type" DROP NOT NULL`);
         await queryRunner.query(`ALTER TABLE "categories" ALTER COLUMN "type" DROP DEFAULT`);
+        // Update existing categories with default icon and color values
+        await queryRunner.query(`UPDATE "categories" SET "icon" = 'home' WHERE "icon" IS NULL`);
+        await queryRunner.query(`UPDATE "categories" SET "color" = '#3498db' WHERE "color" IS NULL`);
         await queryRunner.query(`ALTER TABLE "categories" ALTER COLUMN "icon" SET NOT NULL`);
         await queryRunner.query(`ALTER TABLE "categories" ALTER COLUMN "color" SET NOT NULL`);
     }

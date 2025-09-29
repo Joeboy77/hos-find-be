@@ -38,8 +38,29 @@ const loginValidation = [
     .notEmpty()
     .withMessage('Password is required')
 ];
+
+const verifyEmailValidation = [
+  body('email')
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('Please provide a valid email address'),
+  body('verificationCode')
+    .isLength({ min: 4, max: 4 })
+    .isNumeric()
+    .withMessage('Verification code must be a 4-digit number')
+];
+
+const resendCodeValidation = [
+  body('email')
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('Please provide a valid email address')
+];
+
 router.post('/signup', signupValidation, validateRequest, authController.signup);
 router.post('/login', loginValidation, validateRequest, authController.login);
 router.post('/refresh-token', authController.refreshToken);
 router.post('/logout', authController.logout);
+router.post('/verify-email', verifyEmailValidation, validateRequest, authController.verifyEmail);
+router.post('/resend-verification-code', resendCodeValidation, validateRequest, authController.resendVerificationCode);
 export default router; 
