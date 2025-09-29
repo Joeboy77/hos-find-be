@@ -47,7 +47,7 @@ class EmailService {
                 Name: data.fullName,
               },
             ],
-            Subject: 'Verify Your HosFind Account',
+            Subject: 'Verify Your MyHostel Account',
             TextPart: this.getVerificationEmailText(data),
             HTMLPart: this.getVerificationEmailTemplate(data),
           },
@@ -148,32 +148,32 @@ class EmailService {
         </head>
         <body>
           <div class="container">
-            <div class="header">
-              <div class="logo">🏨 HosFind</div>
-              <h1 class="title">Verify Your Account</h1>
-            </div>
-            
-            <p>Hello <strong>${data.fullName}</strong>,</p>
-            
-            <p>Welcome to HosFind! To complete your account setup, please verify your email address using the verification code below:</p>
+                <div class="header">
+                  <div class="logo">🏨 MyHostel</div>
+                  <h1 class="title">Verify Your Account</h1>
+                </div>
+
+                <p>Hello <strong>${data.fullName}</strong>,</p>
+
+                <p>Welcome to MyHostel! To complete your account setup, please verify your email address using the verification code below:</p>
             
             <div class="verification-code">
               <div class="code">${data.verificationCode}</div>
             </div>
             
-            <div class="instructions">
-              <strong>Instructions:</strong>
-              <ul>
-                <li>Enter this 4-digit code in the HosFind app</li>
-                <li>The code will expire in 10 minutes</li>
-                <li>If you didn't create an account, please ignore this email</li>
-              </ul>
-            </div>
+                <div class="instructions">
+                  <strong>Instructions:</strong>
+                  <ul>
+                    <li>Enter this 4-digit code in the MyHostel app</li>
+                    <li>The code will expire in 10 minutes</li>
+                    <li>If you didn't create an account, please ignore this email</li>
+                  </ul>
+                </div>
             
             <p>If you have any questions or need assistance, please don't hesitate to contact our support team.</p>
             
             <div class="footer">
-              <p>Best regards,<br>The HosFind Team</p>
+              <p>Best regards,<br>The MyHostel Team</p>
               <p>This is an automated message. Please do not reply to this email.</p>
             </div>
           </div>
@@ -184,24 +184,24 @@ class EmailService {
 
   private getVerificationEmailText(data: EmailVerificationData): string {
     return `
-      HosFind - Verify Your Account
-      
+      MyHostel - Verify Your Account
+
       Hello ${data.fullName},
-      
-      Welcome to HosFind! To complete your account setup, please verify your email address using the verification code below:
-      
+
+      Welcome to MyHostel! To complete your account setup, please verify your email address using the verification code below:
+
       Verification Code: ${data.verificationCode}
-      
+
       Instructions:
-      - Enter this 4-digit code in the HosFind app
+      - Enter this 4-digit code in the MyHostel app
       - The code will expire in 10 minutes
       - If you didn't create an account, please ignore this email
-      
+
       If you have any questions or need assistance, please don't hesitate to contact our support team.
-      
+
       Best regards,
-      The HosFind Team
-      
+      The MyHostel Team
+
       This is an automated message. Please do not reply to this email.
     `;
   }
