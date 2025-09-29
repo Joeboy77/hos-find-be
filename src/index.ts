@@ -39,6 +39,21 @@ app.use((req, res, next) => {
   }
 });
 app.use(morgan('combined'));
+// Handle text/plain bodies that actually contain JSON (some clients mislabel)
+app.use(express.text({ type: ['text/plain', 'text/*'], limit: '1mb' }));
+app.use((req, _res, next) => {
+  if (typeof req.body === 'string') {
+    const trimmed = req.body.trim();
+    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+      try {
+        (req as any).body = JSON.parse(trimmed);
+      } catch {
+        // leave as string if not JSON
+      }
+    }
+  }
+  next();
+});
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use((req, res, next) => {
