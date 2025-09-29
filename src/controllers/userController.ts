@@ -317,7 +317,7 @@ export class UserController {
         console.log('💡 [USER PROFILE] The mobile app needs to clear its stored token and re-login');
         
         const error = new Error('User account not found. Please log in again.') as AppError;
-        error.statusCode = 401; // Changed from 404 to 401 to indicate auth issue
+        error.statusCode = 404; // Return 404 for user not found
         return next(error);
       }
 
@@ -446,6 +446,11 @@ export class UserController {
       }
       if (typeof newPassword !== 'string' || newPassword.length < 6) {
         const error = new Error('New password must be at least 6 characters long') as AppError;
+        error.statusCode = 400;
+        return next(error);
+      }
+      if (currentPassword === newPassword) {
+        const error = new Error('New password must be different from current password') as AppError;
         error.statusCode = 400;
         return next(error);
       }
