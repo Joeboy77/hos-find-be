@@ -422,7 +422,16 @@ export class UserController {
         contentLength: req.headers['content-length'],
         method: req.method
       });
-      const { currentPassword, newPassword } = req.body || {};
+      // Defensively handle cases where body is a raw string (e.g., incorrect content-type)
+      let parsedBody: any = req.body;
+      if (typeof parsedBody === 'string') {
+        try {
+          parsedBody = JSON.parse(parsedBody);
+        } catch (e) {
+          console.warn('⚠️ [USER CHANGE PASSWORD] Body was string and not JSON parseable');
+        }
+      }
+      const { currentPassword, newPassword } = parsedBody || {};
       console.log('🔐 [USER CHANGE PASSWORD] Start', {
         userId: req.user.id,
         hasCurrent: Boolean(currentPassword),
