@@ -388,15 +388,7 @@ export class UserController {
         updates.phoneNumber = req.body.phoneNumber;
         console.log('📱 [USER UPDATE] Queued phoneNumber change');
       }
-      if (req.body.password) {
-        if (req.body.password.length < 6) {
-          const error = new Error('Password must be at least 6 characters long') as AppError;
-          error.statusCode = 400;
-          return next(error);
-        }
-        updates.password = req.body.password;
-        console.log('🔐 [USER UPDATE] Queued password change');
-      }
+      // Password change has been moved to a dedicated route
       console.log('🚀 [USER UPDATE] Performing update', { userId: req.user.id, updates });
       const updateResult = await userRepository.update(req.user.id, updates);
       console.log('✅ [USER UPDATE] Update result', updateResult);
@@ -413,6 +405,51 @@ export class UserController {
       });
     } catch (error) {
       console.error('❌ [USER UPDATE] Error', error);
+      next(error);
+    }
+  }
+  static async changePassword(req: UserRequest, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) {
+        const error = new Error('User not authenticated') as AppError;
+        error.statusCode = 401;
+        return next(error);
+      }
+      const { currentPassword, newPassword } = req.body || {};
+      console.log('🔐 [USER CHANGE PASSWORD] Start', {
+        userId: req.user.id,
+        hasCurrent: Boolean(currentPassword),
+        hasNew: Boolean(newPassword)
+      });
+      if (!currentPassword || !newPassword) {
+        const error = new Error('Both currentPassword and newPassword are required') as AppError;
+        error.statusCode = 400;
+        return next(error);
+      }
+      if (typeof newPassword !== 'string' || newPassword.length < 6) {
+        const error = new Error('New password must be at least 6 characters long') as AppError;
+        error.statusCode = 400;
+        return next(error);
+      }
+      const userRepository = AppDataSource.getRepository(User);
+      const user = await userRepository.findOne({ where: { id: req.user.id } });
+      if (!user) {
+        const error = new Error('User not found') as AppError;
+        error.statusCode = 404;
+        return next(error);
+      }
+      const isCurrentValid = await user.comparePassword(currentPassword);
+      if (!isCurrentValid) {
+        const error = new Error('Current password is incorrect') as AppError;
+        error.statusCode = 400;
+        return next(error);
+      }
+      user.password = newPassword;
+      await userRepository.save(user);
+      console.log('✅ [USER CHANGE PASSWORD] Password updated');
+      res.json({ success: true, message: 'Password changed successfully' });
+    } catch (error) {
+      console.error('❌ [USER CHANGE PASSWORD] Error', error);
       next(error);
     }
   }

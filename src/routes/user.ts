@@ -18,14 +18,18 @@ router.put('/profile', [
   body('email').optional().isEmail().normalizeEmail(),
   body('phoneNumber').optional().isMobilePhone('any'),
   body('location').optional().trim(),
-  body('password').optional().isLength({ min: 6 })
+  body('currentPassword').optional().isLength({ min: 6 }),
+  body('newPassword').optional().isLength({ min: 6 })
 ], UserController.updateProfile);
 router.patch('/profile', [
   body('fullName').optional().trim().isLength({ min: 2 }),
   body('email').optional().isEmail().normalizeEmail(),
   body('phoneNumber').optional().isMobilePhone('any'),
   body('location').optional().trim(),
-  body('password').optional().isLength({ min: 6 })
 ], UserController.updateProfile);
+router.post('/change-password', [
+  body('currentPassword').exists().isLength({ min: 6 }),
+  body('newPassword').exists().isLength({ min: 6 })
+], UserController.changePassword);
 router.delete('/profile', UserController.deleteProfile);
 export default router; 
