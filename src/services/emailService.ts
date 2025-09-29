@@ -1,4 +1,4 @@
-import { MailerSend, EmailParams, Sender, Recipient } from 'mailersend';
+import Mailjet from 'node-mailjet';
 
 export interface EmailVerificationData {
   email: string;
@@ -7,21 +7,23 @@ export interface EmailVerificationData {
 }
 
 class EmailService {
-  private mailerSend: MailerSend;
+  private mailjet: Mailjet;
   private fromEmail: string;
   private fromName: string;
 
   constructor() {
-    const apiToken = process.env.MAILERSEND_API_TOKEN;
-    const fromEmail = process.env.MAILERSEND_FROM_EMAIL || 'noreply@hosfind.com';
-    const fromName = process.env.MAILERSEND_FROM_NAME || 'HosFind';
+    const apiKey = process.env.MAILJET_API_KEY;
+    const secretKey = process.env.MAILJET_SECRET_KEY;
+    const fromEmail = process.env.MAILJET_FROM_EMAIL || 'noreply@hosfind.com';
+    const fromName = process.env.MAILJET_FROM_NAME || 'HosFind';
 
-    if (!apiToken) {
-      throw new Error('MAILERSEND_API_TOKEN is required');
+    if (!apiKey || !secretKey) {
+      throw new Error('MAILJET_API_KEY and MAILJET_SECRET_KEY are required');
     }
 
-    this.mailerSend = new MailerSend({
-      apiKey: apiToken,
+    this.mailjet = new Mailjet({
+      apiKey: apiKey,
+      apiSecret: secretKey,
     });
 
     this.fromEmail = fromEmail;
@@ -32,20 +34,29 @@ class EmailService {
     try {
       console.log('📧 [EMAIL] Sending verification email to:', data.email);
 
-      const sentFrom = new Sender(this.fromEmail, this.fromName);
-      const recipients = [new Recipient(data.email, data.fullName)];
+      const request = this.mailjet.post('send', { version: 'v3.1' }).request({
+        Messages: [
+          {
+            From: {
+              Email: this.fromEmail,
+              Name: this.fromName,
+            },
+            To: [
+              {
+                Email: data.email,
+                Name: data.fullName,
+              },
+            ],
+            Subject: 'Verify Your HosFind Account',
+            TextPart: this.getVerificationEmailText(data),
+            HTMLPart: this.getVerificationEmailTemplate(data),
+          },
+        ],
+      });
 
-      const emailParams = new EmailParams()
-        .setFrom(sentFrom)
-        .setTo(recipients)
-        .setReplyTo(sentFrom)
-        .setSubject('Verify Your HosFind Account')
-        .setHtml(this.getVerificationEmailTemplate(data))
-        .setText(this.getVerificationEmailText(data));
+      const response = await request;
 
-      const response = await this.mailerSend.email.send(emailParams);
-      
-      console.log('✅ [EMAIL] Verification email sent successfully:', response);
+      console.log('✅ [EMAIL] Verification email sent successfully:', response.body);
       return true;
     } catch (error) {
       console.error('❌ [EMAIL] Failed to send verification email:', error);
