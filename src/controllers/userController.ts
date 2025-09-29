@@ -343,7 +343,9 @@ export class UserController {
       }
       console.log('🛠️ [USER UPDATE] Start', {
         userId: req.user.id,
-        body: req.body
+        body: req.body,
+        contentType: req.headers['content-type'],
+        contentLength: req.headers['content-length']
       });
       const userRepository = AppDataSource.getRepository(User);
       const user = await userRepository.findOne({
