@@ -415,11 +415,20 @@ export class UserController {
         error.statusCode = 401;
         return next(error);
       }
+      console.log('🔐 [USER CHANGE PASSWORD] Raw request', {
+        userId: req.user.id,
+        body: req.body,
+        contentType: req.headers['content-type'],
+        contentLength: req.headers['content-length'],
+        method: req.method
+      });
       const { currentPassword, newPassword } = req.body || {};
       console.log('🔐 [USER CHANGE PASSWORD] Start', {
         userId: req.user.id,
         hasCurrent: Boolean(currentPassword),
-        hasNew: Boolean(newPassword)
+        hasNew: Boolean(newPassword),
+        currentPassword: currentPassword ? '***' : 'undefined',
+        newPassword: newPassword ? '***' : 'undefined'
       });
       if (!currentPassword || !newPassword) {
         const error = new Error('Both currentPassword and newPassword are required') as AppError;
