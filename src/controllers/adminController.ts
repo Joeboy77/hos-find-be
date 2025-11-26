@@ -1368,8 +1368,28 @@ export class AdminController {
         relations: ['category']
       });
 
-      const roomTypeData = roomType.toJSON();
-      (roomTypeData as any).property = property ? property.toJSON() : null;
+      const normalizedName = (roomType.name || '').trim();
+      const groupQuery = roomTypeRepository
+        .createQueryBuilder('roomType')
+        .where('roomType.propertyId = :propertyId', { propertyId: roomType.propertyId });
+
+      if (normalizedName.length > 0) {
+        groupQuery.andWhere('LOWER(roomType.name) = LOWER(:name)', { name: normalizedName });
+      } else {
+        groupQuery.andWhere('roomType.id = :roomTypeId', { roomTypeId: roomType.id });
+      }
+
+      const groupedRoomTypes = await groupQuery
+        .orderBy('roomType.displayOrder', 'ASC')
+        .addOrderBy('roomType.price', 'ASC')
+        .getMany();
+
+      const roomTypeData = roomType.toJSON() as any;
+      roomTypeData.property = property ? property.toJSON() : null;
+      roomTypeData.roomTypeGroup = {
+        name: roomType.name,
+        variants: groupedRoomTypes.map(rt => rt.toJSON())
+      };
 
       res.json({
         success: true,
