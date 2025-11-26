@@ -545,8 +545,23 @@ export const contentController = {
         where: { propertyId: id }
       });
 
-      const propertyData = property.toJSON();
-      propertyData.roomTypes = roomTypes.map(rt => rt.toJSON());
+      const propertyData = property.toJSON() as any;
+      const serializedRoomTypes = roomTypes.map(rt => rt.toJSON());
+      propertyData.roomTypes = serializedRoomTypes;
+      propertyData.roomTypeGroups = serializedRoomTypes.reduce((groups, roomType) => {
+        const key = (roomType.name || '').trim().toLowerCase() || roomType.id;
+        const existing = groups.find(group => group.key === key);
+        if (existing) {
+          existing.variants.push(roomType);
+        } else {
+          groups.push({
+            key,
+            name: roomType.name,
+            variants: [roomType]
+          });
+        }
+        return groups;
+      }, [] as Array<{ key: string; name: string; variants: any[] }>);
       propertyData.likeCount = likeCount;
 
       res.json({

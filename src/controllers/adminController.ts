@@ -26,7 +26,7 @@ export class AdminController {
     console.log('🔑 [ADMIN LOGIN] Starting admin login process');
     try {
       const { email, password } = req.body;
-
+      
       if (!email || !password) {
         res.status(400).json({ success: false, message: 'Email and password are required' });
         return;
@@ -168,13 +168,13 @@ export class AdminController {
         success: true,
         data: {
           summary: {
-            totalUsers,
-            totalAdmins,
-            activeUsers,
-            totalProperties,
-            activeProperties,
-            featuredProperties,
-            totalCategories,
+          totalUsers,
+          totalAdmins,
+          activeUsers,
+          totalProperties,
+          activeProperties,
+          featuredProperties,
+          totalCategories,
             totalLikes,
             totalNotifications,
             unreadNotifications
@@ -205,7 +205,7 @@ export class AdminController {
 
       const userRepository = AppDataSource.getRepository(User);
       const queryBuilder = userRepository.createQueryBuilder('user');
-
+      
       if (search) {
         queryBuilder.where(
           'user.fullName ILIKE :search OR user.email ILIKE :search OR user.phoneNumber ILIKE :search',
@@ -693,7 +693,7 @@ export class AdminController {
 
       const propertyRepository = AppDataSource.getRepository(Property);
       const roomTypeRepository = AppDataSource.getRepository(RoomType);
-
+      
       const property = await propertyRepository.findOne({
         where: { id },
         relations: ['category']
@@ -710,8 +710,23 @@ export class AdminController {
         order: { displayOrder: 'ASC', price: 'ASC' }
       });
 
-      const propertyData = property.toJSON();
-      (propertyData as any).roomTypes = roomTypes.map(rt => rt.toJSON());
+      const propertyData = property.toJSON() as any;
+      const serializedRoomTypes = roomTypes.map(rt => rt.toJSON());
+      (propertyData as any).roomTypes = serializedRoomTypes;
+      (propertyData as any).roomTypeGroups = serializedRoomTypes.reduce((groups, roomType) => {
+        const key = (roomType.name || '').trim().toLowerCase() || roomType.id;
+        const existing = groups.find(group => group.key === key);
+        if (existing) {
+          existing.variants.push(roomType);
+        } else {
+          groups.push({
+            key,
+            name: roomType.name,
+            variants: [roomType]
+          });
+        }
+        return groups;
+      }, [] as Array<{ key: string; name: string; variants: any[] }>);
 
       res.json({
         success: true,
@@ -1080,7 +1095,7 @@ export class AdminController {
 
       const categoryRepository = AppDataSource.getRepository(Category);
       const propertyRepository = AppDataSource.getRepository(Property);
-
+      
       const category = await categoryRepository.findOne({
         where: { id }
       });
@@ -1139,7 +1154,7 @@ export class AdminController {
   static async createCategory(req: AdminRequest, res: Response): Promise<void> {
     try {
       const { name, description, imageUrl, type, displayOrder = 0, icon, color } = req.body;
-      
+
       if (!name || !icon || !color) {
         res.status(400).json({ 
           success: false, 
@@ -1172,7 +1187,7 @@ export class AdminController {
         isActive: true,
         propertyCount: 0
       });
-      
+
       await categoryRepository.save(newCategory);
 
       // Create notification for all users about the new category
@@ -1252,7 +1267,7 @@ export class AdminController {
 
       const categoryRepository = AppDataSource.getRepository(Category);
       const propertyRepository = AppDataSource.getRepository(Property);
-
+      
       const category = await categoryRepository.findOne({ where: { id } });
       if (!category) {
         res.status(404).json({ success: false, message: 'Category not found' });
@@ -1265,8 +1280,8 @@ export class AdminController {
       });
 
       if (activeProperties > 0) {
-        res.status(400).json({
-          success: false,
+        res.status(400).json({ 
+          success: false, 
           message: `Cannot delete category. It has ${activeProperties} active properties.`
         });
         return;
@@ -1520,7 +1535,7 @@ export class AdminController {
     try {
       const categoryRepository = AppDataSource.getRepository(Category);
       const propertyRepository = AppDataSource.getRepository(Property);
-
+      
       const categories = await categoryRepository.find({
         select: ['id', 'name', 'type', 'isActive', 'propertyCount'],
         order: { displayOrder: 'ASC', createdAt: 'DESC' }
@@ -1592,14 +1607,14 @@ export class AdminController {
       if (newPassword) {
         if (!currentPassword) {
           res.status(400).json({ success: false, message: 'Current password is required to set new password' });
-          return;
-        }
+        return;
+      }
 
         const isCurrentPasswordValid = await bcrypt.compare(currentPassword, admin.password);
         if (!isCurrentPasswordValid) {
           res.status(400).json({ success: false, message: 'Current password is incorrect' });
-          return;
-        }
+        return;
+      }
 
         if (newPassword.length < 6) {
           res.status(400).json({ success: false, message: 'New password must be at least 6 characters long' });
@@ -1741,7 +1756,7 @@ export class AdminController {
       const sections = await AppDataSource.getRepository(RegionalSection)
         .find({
           order: { displayOrder: "ASC", createdAt: "DESC" }
-        });
+      });
 
       res.json({
         success: true,
