@@ -641,11 +641,12 @@ export class AdminController {
       const propertyRepository = AppDataSource.getRepository(Property);
       const queryBuilder = propertyRepository
         .createQueryBuilder('property')
-        .leftJoinAndSelect('property.category', 'category');
+        .leftJoinAndSelect('property.category', 'category')
+        .where('property.isActive = :isActive', { isActive: true });
 
       if (search) {
-        queryBuilder.where(
-          'property.name ILIKE :search OR property.description ILIKE :search OR property.location ILIKE :search',
+        queryBuilder.andWhere(
+          '(property.name ILIKE :search OR property.description ILIKE :search OR property.location ILIKE :search)',
           { search: `%${search}%` }
         );
       }
@@ -1042,11 +1043,12 @@ export class AdminController {
       const offset = (page - 1) * limit;
 
       const categoryRepository = AppDataSource.getRepository(Category);
-      const queryBuilder = categoryRepository.createQueryBuilder('category');
+      const queryBuilder = categoryRepository.createQueryBuilder('category')
+        .where('category.isActive = :isActive', { isActive: true });
 
       if (search) {
-        queryBuilder.where(
-          'category.name ILIKE :search OR category.description ILIKE :search',
+        queryBuilder.andWhere(
+          '(category.name ILIKE :search OR category.description ILIKE :search)',
           { search: `%${search}%` }
         );
       }
@@ -1294,11 +1296,12 @@ export class AdminController {
       const roomTypeRepository = AppDataSource.getRepository(RoomType);
       const queryBuilder = roomTypeRepository
         .createQueryBuilder('roomType')
-        .leftJoinAndSelect('roomType.property', 'property');
+        .leftJoinAndSelect('roomType.property', 'property')
+        .where('roomType.isActive = :isActive', { isActive: true });
 
       if (search) {
-        queryBuilder.where(
-          'roomType.name ILIKE :search OR roomType.description ILIKE :search',
+        queryBuilder.andWhere(
+          '(roomType.name ILIKE :search OR roomType.description ILIKE :search)',
           { search: `%${search}%` }
         );
       }
