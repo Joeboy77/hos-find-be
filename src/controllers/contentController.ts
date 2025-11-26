@@ -4,6 +4,7 @@ import { Category } from '../models/Category';
 import { Property } from '../models/Property';
 import { RoomType } from '../models/RoomType';
 import { Like } from '../models/Like';
+import { RegionalSection } from '../models/RegionalSection';
 import { Like as TypeORMLike } from 'typeorm';
 import { AppError } from '../middleware/errorHandler';
 import cloudinary from '../config/cloudinary';
@@ -798,7 +799,7 @@ export const contentController = {
 
   async getRegionalSections(req: Request, res: Response, next: NextFunction) {
     try {
-      const regionalSectionRepository = AppDataSource.getRepository('RegionalSection');
+      const regionalSectionRepository = AppDataSource.getRepository(RegionalSection);
       const propertyRepository = AppDataSource.getRepository(Property);
       
       // Get all active regional sections
