@@ -21,19 +21,13 @@ const signupValidation = [
         throw new Error('Password confirmation does not match password');
       }
       return true;
-    }),
-  body('phoneNumber')
-    .matches(/^\+?[\d\s-()]+$/)
-    .withMessage('Please provide a valid phone number'),
-  body('location')
-    .trim()
-    .isLength({ min: 2, max: 100 })
-    .withMessage('Location must be between 2 and 100 characters')
+    })
 ];
 const loginValidation = [
-  body('phoneNumber')
-    .notEmpty()
-    .withMessage('Phone number is required'),
+  body('email')
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('Please provide a valid email address'),
   body('password')
     .notEmpty()
     .withMessage('Password is required')

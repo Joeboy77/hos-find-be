@@ -356,7 +356,7 @@ export class UserController {
         error.statusCode = 404;
         return next(error);
       }
-      const allowedFields = ['fullName', 'location'];
+      const allowedFields = ['fullName'];
       const updates: any = {};
       allowedFields.forEach(field => {
         if (req.body[field] !== undefined) {

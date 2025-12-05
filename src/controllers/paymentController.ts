@@ -158,6 +158,18 @@ export class PaymentController {
 
       // Check if payment was successful
       if (paymentData.status === 'success') {
+        // Extract phone number from Paystack response
+        // Paystack returns phone in customer.phone or authorization.phone
+        const phoneNumber = paymentData.customer?.phone || paymentData.authorization?.phone || null;
+        
+        // Update user's phone number if it's not already set and we got it from Paystack
+        if (phoneNumber && booking.user && !booking.user.phoneNumber) {
+          const userRepository = AppDataSource.getRepository(User);
+          await userRepository.update(booking.user.id, {
+            phoneNumber: phoneNumber
+          });
+        }
+
         // Update booking status
         booking.status = BookingStatus.CONFIRMED;
         booking.isPaid = true;
@@ -249,6 +261,17 @@ export class PaymentController {
         });
 
         if (booking) {
+          // Extract phone number from Paystack webhook data
+          const phoneNumber = data.customer?.phone || data.authorization?.phone || null;
+          
+          // Update user's phone number if it's not already set and we got it from Paystack
+          if (phoneNumber && booking.user && !booking.user.phoneNumber) {
+            const userRepository = AppDataSource.getRepository(User);
+            await userRepository.update(booking.user.id, {
+              phoneNumber: phoneNumber
+            });
+          }
+
           // Update booking status
           booking.status = BookingStatus.CONFIRMED;
           booking.isPaid = true;

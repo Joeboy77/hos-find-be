@@ -33,13 +33,10 @@ export const authController = {
     try {
       const userRepository = AppDataSource.getRepository(User);
       const existingUser = await userRepository.findOne({
-        where: [
-          { email: req.body.email },
-          { phoneNumber: req.body.phoneNumber }
-        ]
+        where: { email: req.body.email }
       });
       if (existingUser) {
-        const error = new Error('User with this email or phone number already exists') as AppError;
+        const error = new Error('User with this email already exists') as AppError;
         error.statusCode = 409;
         return next(error);
       }
@@ -52,8 +49,6 @@ export const authController = {
         fullName: req.body.fullName,
         email: req.body.email,
         password: req.body.password,
-        phoneNumber: req.body.phoneNumber,
-        location: req.body.location,
         emailVerificationCode: verificationCode,
         emailVerificationCodeExpiresAt: verificationCodeExpiresAt,
         isEmailVerified: false
@@ -89,16 +84,16 @@ export const authController = {
     try {
       const userRepository = AppDataSource.getRepository(User);
       const user = await userRepository.findOne({
-        where: { phoneNumber: req.body.phoneNumber }
+        where: { email: req.body.email }
       });
       if (!user) {
-        const error = new Error('Invalid phone number or password') as AppError;
+        const error = new Error('Invalid email or password') as AppError;
         error.statusCode = 401;
         return next(error);
       }
       const isValidPassword = await user.comparePassword(req.body.password);
       if (!isValidPassword) {
-        const error = new Error('Invalid phone number or password') as AppError;
+        const error = new Error('Invalid email or password') as AppError;
         error.statusCode = 401;
         return next(error);
       }

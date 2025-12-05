@@ -15,7 +15,6 @@ import { Like } from './Like';
 
 @Entity('users')
 @Index(['email'], { unique: true })
-@Index(['phoneNumber'], { unique: true })
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -34,13 +33,8 @@ export class User {
   @IsNotEmpty({ message: 'Password is required' })
   password: string;
 
-  @Column({ type: 'varchar', length: 20, unique: true })
-  @IsNotEmpty({ message: 'Phone number is required' })
-  phoneNumber: string;
-
-  @Column({ type: 'varchar', length: 100 })
-  @IsNotEmpty({ message: 'Location is required' })
-  location: string;
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  phoneNumber: string | null;
 
   @Column({ type: 'boolean', default: false })
   isEmailVerified: boolean;

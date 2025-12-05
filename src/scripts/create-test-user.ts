@@ -31,13 +31,12 @@ async function createTestUser() {
       email: 'test@hosfind.com',
       phoneNumber: '+233123456789',
       password: hashedPassword,
-      location: 'Accra, Ghana',
       isEmailVerified: true,
       isPhoneVerified: true,
       isActive: true
     });
 
-    const savedUser = await userRepository.save(testUser);
+    const savedUser = await userRepository.save(testUser) as User;
 
     console.log('✅ Test user created successfully:');
     console.log(`   ID: ${savedUser.id}`);
