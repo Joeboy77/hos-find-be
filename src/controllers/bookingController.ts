@@ -97,9 +97,29 @@ export class BookingController {
       // Capacity check removed - no longer tracking guests
 
       // Calculate total amount with 5% service charge
-      const roomPrice = roomType.price;
+      // Ensure roomPrice is a number (decimal from DB might be string)
+      const roomPrice = typeof roomType.price === 'string' 
+        ? parseFloat(roomType.price) 
+        : Number(roomType.price);
+      
+      if (isNaN(roomPrice) || roomPrice <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid room price',
+        });
+      }
+
       const serviceCharge = roomPrice * 0.05; // 5% service charge
-      const totalAmount = roomPrice + serviceCharge;
+      // Round to 2 decimal places to avoid floating point precision issues
+      const totalAmount = Math.round((roomPrice + serviceCharge) * 100) / 100;
+
+      // Ensure totalAmount is a valid number
+      if (isNaN(totalAmount) || totalAmount <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid total amount calculated',
+        });
+      }
 
       // Create booking
       const booking = new Booking();
@@ -108,7 +128,8 @@ export class BookingController {
       booking.roomTypeId = roomTypeId;
       booking.checkInDate = checkInDate;
       // checkout, guests, and specialRequests removed
-      booking.totalAmount = totalAmount;
+      // Explicitly ensure totalAmount is a number (TypeORM decimal expects number)
+      booking.totalAmount = Number(totalAmount);
       booking.currency = roomType.currency || 'GHS';
       booking.status = BookingStatus.PENDING;
 

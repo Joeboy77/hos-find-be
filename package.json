@@ -26,7 +26,8 @@
     "test:server-like": "ts-node src/scripts/test-server-like.ts",
     "seed:room-types": "ts-node src/scripts/seed-room-types-fixed.ts",
     "update:coordinates": "ts-node src/scripts/update-properties-coordinates.ts",
-    "seed:notifications": "ts-node src/scripts/seed-notifications.ts"
+    "seed:notifications": "ts-node src/scripts/seed-notifications.ts",
+    "fix:user-schema": "ts-node src/scripts/fix-user-schema.ts"
   },
   "keywords": [
     "hostel",
