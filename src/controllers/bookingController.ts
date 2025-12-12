@@ -96,7 +96,7 @@ export class BookingController {
 
       // Capacity check removed - no longer tracking guests
 
-      // Calculate total amount with 5% service charge
+      // Calculate total amount with 8% service charge
       // Ensure roomPrice is a number (decimal from DB might be string)
       const roomPrice = typeof roomType.price === 'string' 
         ? parseFloat(roomType.price) 
@@ -109,7 +109,7 @@ export class BookingController {
         });
       }
 
-      const serviceCharge = roomPrice * 0.05; // 5% service charge
+      const serviceCharge = roomPrice * 0.08; // 8% service charge
       // Round to 2 decimal places to avoid floating point precision issues
       const totalAmount = Math.round((roomPrice + serviceCharge) * 100) / 100;
 
